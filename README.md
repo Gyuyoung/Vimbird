@@ -45,13 +45,15 @@ The add-on disappears when Thunderbird restarts; repeat the three steps, or pres
 
 ### Install as an XPI
 
+Download the `.xpi` from the [latest release](../../releases/latest), then **Add-ons Manager → gear icon → Install Add-on From File** and choose it. To build one from source instead:
+
 ```bash
 npm run build      # writes dist/vimbird-<version>.xpi
 ```
 
-Then **Add-ons Manager → gear icon → Install Add-on From File** and choose the built `.xpi`.
+This survives restarts, but the file is unsigned, so some Thunderbird builds and channels will refuse it. If that happens, use the temporary install above. There is no automatic update either — watch the repository's releases to hear about new versions.
 
-This survives restarts, but the file is unsigned, so some Thunderbird builds and channels will refuse it. If that happens, use the temporary install above.
+Vimbird is not on [addons.thunderbird.net](https://addons.thunderbird.net). Thunderbird has paused reviews of new add-ons that use Experiment APIs until at least the 2027 ESR, and Vimbird cannot work without one (see [Introduction](#1-introduction)), so releases here are the way to get it.
 
 **Requirements:** Thunderbird 128 or newer (developed and verified on 155). Building needs Node.js 20+; there are no runtime or build dependencies beyond the standard library.
 
