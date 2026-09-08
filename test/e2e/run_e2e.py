@@ -82,11 +82,14 @@ const vb = {
     const layer = w.document.getElementById("vimbird-hint-layer");
     if (!element || !layer) return null;
     const rect = element.getBoundingClientRect();
+    // A label rests against the element's left edge, centred on its height, so
+    // that is what identifies it — not the element's top-left corner.
+    const centre = rect.top + rect.height / 2;
     let best = null;
     let bestDistance = Infinity;
     for (const hint of layer.querySelectorAll(".vimbird-hint")) {
       const hr = hint.getBoundingClientRect();
-      const distance = Math.hypot(hr.left - rect.left, hr.top - rect.top);
+      const distance = Math.hypot(hr.left - rect.left, hr.top + hr.height / 2 - centre);
       if (distance < bestDistance) {
         bestDistance = distance;
         best = { label: hint.dataset.vimbirdLabel, distance: Math.round(distance) };
@@ -303,6 +306,64 @@ def scenario_hints_do_not_overlap(mn):
         f"{result['total']} labels on {opened['subject']!r}: "
         f"{result['anchorCollisions']} would overlap on raw anchors, "
         f"{result['drawnCollisions']} do after spreading"
+    )
+
+
+def scenario_hints_are_centred(mn):
+    """A label sits on the middle of its row's height, not on its top edge.
+
+    On the top edge a label straddles the border between two rows and reads as
+    belonging to the one above, which makes it easy to type the wrong hint.
+    """
+    start_hint_mode(mn)
+    result = mn.script(
+        PRELUDE
+        + """
+        const a3p = vb.tabmail().currentAbout3Pane;
+        const hints = vb.hintsIn(a3p).map(hint => {
+          const rect = hint.getBoundingClientRect();
+          return { label: hint.dataset.vimbirdLabel, left: rect.left, centre: rect.top + rect.height / 2 };
+        });
+
+        const SELECTOR = "li[is='folder-tree-row'], tr[is='tree-view-table-row']";
+        const rows = [...a3p.document.querySelectorAll(SELECTOR)];
+        const offsets = [];
+        for (const row of rows) {
+          const rect = row.getBoundingClientRect();
+          // Skip rows the viewport clips: their hint is centred on the visible
+          // part, which is not the row's own middle.
+          if (rect.height < 8 || rect.top < 0 || rect.bottom > a3p.innerHeight) continue;
+          // A parent row's box wraps its whole subtree, so the row a user sees
+          // ends where its first child row starts.
+          const nested = row.querySelector(SELECTOR);
+          const nestedTop = nested ? nested.getBoundingClientRect().top : rect.bottom;
+          const strip = Math.max(8, Math.min(rect.height, nestedTop - rect.top));
+          const centre = rect.top + strip / 2;
+          const hint = hints.find(
+            h => Math.abs(h.left - rect.left) <= 1 && Math.abs(h.centre - centre) < strip / 2
+          );
+          if (hint) {
+            offsets.push({ label: hint.label, off: Math.round(hint.centre - centre), height: Math.round(strip) });
+          }
+        }
+        return {
+          rows: rows.length,
+          matched: offsets.length,
+          worst: offsets.reduce((max, o) => Math.max(max, Math.abs(o.off)), 0),
+          rowHeight: offsets.length ? offsets[0].height : 0,
+          examples: offsets.slice(0, 3),
+        };
+        """
+    )
+    mn.press(mn.ESCAPE)
+    check(result["matched"] >= 4, f"only matched {result['matched']} of {result['rows']} rows to a hint")
+    check(
+        result["worst"] <= 1,
+        f"a label sits {result['worst']}px off its row's middle: {result['examples']}",
+    )
+    return (
+        f"{result['matched']} rows checked, worst offset {result['worst']}px "
+        f"on rows {result['rowHeight']}px tall"
     )
 
 
@@ -612,6 +673,7 @@ SCENARIOS = [
     ("hints appear in toolbar and 3-pane", scenario_hints_appear),
     ("labels unique and prefix-free", scenario_labels_unique),
     ("hint labels do not overlap", scenario_hints_do_not_overlap),
+    ("hints sit on the middle of their row", scenario_hints_are_centred),
     ("hint activates a toolbar button", scenario_activate_button),
     ("Escape cancels hint mode", scenario_escape_cancels),
     ("folder hint switches folders, partial input narrows", scenario_multi_character_hint),

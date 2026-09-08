@@ -12,17 +12,40 @@ var Vimbird = typeof Vimbird === "object" && Vimbird ? Vimbird : {};
  * inline links or narrow toolbar buttons would otherwise stack labels on top of
  * each other.
  *
- * Each label starts at its element's corner and, if that spot is taken, moves
- * to the nearest free one: first stepping above and below, then sideways, so a
- * label never drifts far from the element it belongs to.
+ * Each label starts at its element's resting place and, if that spot is taken,
+ * moves to the nearest free one: first stepping above and below, then sideways,
+ * so a label never drifts far from the element it belongs to.
  */
 Vimbird.placement = (() => {
   const GAP = 2;
   const MAX_STEPS = 3;
+  // How much taller than its label an element has to be before its label is
+  // confined to it.
+  const BOUNDS_FACTOR = 1.5;
 
   /**
-   * @param {{left: number, top: number, width: number, height: number}[]} labels
-   *   anchor position and measured size of each label, in ranking order
+   * Where a label rests on its element: against the left edge, centred on the
+   * element's height. Sitting on the top edge instead puts the label on the
+   * border between two rows, where it reads as belonging to the row above.
+   *
+   * @param {{left: number, top: number, width: number, height: number}} target
+   * @param {{height: number}} label - the label's measured size
+   * @returns {{left: number, top: number}}
+   */
+  function anchor(target, label) {
+    return {
+      left: target.left,
+      // A label taller than its element straddles it evenly rather than being
+      // pushed off one end.
+      top: target.top + (target.height - label.height) / 2,
+    };
+  }
+
+  /**
+   * @param {{left: number, top: number, width: number, height: number,
+   *          bounds?: {top: number, bottom: number}}[]} labels
+   *   anchor position and measured size of each label, in ranking order.
+   *   `bounds` is the element's own vertical extent, when it has one.
    * @param {{width: number, height: number}} viewport
    * @returns {{left: number, top: number}[]} positions in the same order
    */
@@ -36,6 +59,11 @@ Vimbird.placement = (() => {
       let chosen = null;
       for (const [dx, dy] of candidateOffsets(label, gap, maxSteps)) {
         const box = clamp({ ...label, left: label.left + dx, top: label.top + dy }, viewport);
+        // A label that leaves its own element lands on the neighbour and is
+        // read as the neighbour's: better to sit at the anchor than to lie.
+        if (!within(box, label.bounds)) {
+          continue;
+        }
         if (!placed.some(other => overlaps(other, box))) {
           chosen = box;
           break;
@@ -67,6 +95,21 @@ Vimbird.placement = (() => {
     }
   }
 
+  /**
+   * Whether a label may sit here. Rows are the case that matters: a label
+   * nudged out of a 28px message row lands on the row below and is read as
+   * that row's, so on anything comfortably taller than the label the search is
+   * confined to the element itself. Links and buttons about the size of their
+   * label have no room to give and keep the full search — their neighbours are
+   * alongside, not above and below.
+   */
+  function within(box, bounds) {
+    if (!bounds || bounds.bottom - bounds.top < box.height * BOUNDS_FACTOR) {
+      return true;
+    }
+    return box.top >= bounds.top - 1 && box.top + box.height <= bounds.bottom + 1;
+  }
+
   function overlaps(a, b) {
     return (
       a.left < b.left + b.width &&
@@ -82,7 +125,7 @@ Vimbird.placement = (() => {
     return { left, top, width: box.width, height: box.height };
   }
 
-  return { layoutLabels, GAP, MAX_STEPS };
+  return { anchor, layoutLabels, GAP, MAX_STEPS, BOUNDS_FACTOR };
 })();
 
 if (typeof module === "object" && module.exports) {

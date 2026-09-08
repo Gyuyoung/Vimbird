@@ -18,7 +18,7 @@ npm test
 
 No dependencies and no Thunderbird. Logic that needs the DOM (`visibility.js`) takes a `{ rect, style, viewport, elementFromPoint }` adapter, so it is exercised against fakes.
 
-What they check: label count, uniqueness, **prefix-freedom**, length balance, that the shortest labels come first, and a custom alphabet; input matching (partial, exact, no match, deletion); ordering by screen position; the editable-context test; and visibility (zero size, outside the viewport, `display:none`, XUL `hidden`/`collapsed`, occlusion, partial exposure).
+What they check: label count, uniqueness, **prefix-freedom**, length balance, that the shortest labels come first, and a custom alphabet; input matching (partial, exact, no match, deletion); ordering by screen position; the editable-context test; visibility (zero size, outside the viewport, `display:none`, XUL `hidden`/`collapsed`, occlusion, partial exposure); clipping a row that wraps a subtree down to its own strip; and label placement (centred on the element's height, separated when labels collide, kept inside the viewport).
 
 ---
 
@@ -34,7 +34,7 @@ How it works: the runner creates a throwaway profile, launches Thunderbird headl
 
 Requirements: `python3`, plus `xvfb-run` when there is no display. An already-running Thunderbird is no obstacle — the test instance is isolated by its own profile and `-no-remote`.
 
-Thirteen scenarios currently cover most of the manual checklist below. On failure, the log path is printed in the first lines of the run.
+Fourteen scenarios currently cover most of the manual checklist below. On failure, the log path is printed in the first lines of the run.
 
 ---
 

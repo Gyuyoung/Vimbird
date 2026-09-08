@@ -74,38 +74,39 @@ Vimbird.overlay = (() => {
       rest.textContent = item.label;
       hint.append(typed, rest);
 
-      const anchorLeft = Math.round(item.rect.left);
-      const anchorTop = Math.round(item.rect.top);
-      hint.dataset.vimbirdAnchor = `${anchorLeft},${anchorTop}`;
-      hint.style.left = `${anchorLeft}px`;
-      hint.style.top = `${anchorTop}px`;
+      // Provisional: the resting place needs the label's height, which is only
+      // known once it has been laid out.
+      hint.style.left = `${Math.round(item.rect.left)}px`;
+      hint.style.top = `${Math.round(item.rect.top)}px`;
       layer.appendChild(hint);
     }
 
     doc.documentElement.appendChild(layer);
-    spreadOverlapping(win, layer);
+    place(win, layer, items);
     return items.length;
   }
 
   /**
-   * Labels are first drawn on their element's corner, which collides whenever
-   * elements sit close together (a row of inline links, narrow toolbar
-   * buttons). Measure the drawn labels once, then move the colliding ones to
-   * the nearest free spot.
+   * Measure the drawn labels once, then put each one where it belongs: centred
+   * on its element's height, and moved to the nearest free spot when elements
+   * sit so close together that their labels would collide (a row of inline
+   * links, narrow toolbar buttons).
    */
-  function spreadOverlapping(win, layer) {
+  function place(win, layer, items) {
     const hints = [...layer.querySelectorAll(".vimbird-hint")];
-    if (hints.length < 2) {
-      return;
-    }
 
-    const labels = hints.map(hint => {
+    const labels = hints.map((hint, index) => {
+      const target = items[index].rect;
       const rect = hint.getBoundingClientRect();
+      const resting = Vimbird.placement.anchor(target, rect);
+      hint.dataset.vimbirdAnchor = `${Math.round(resting.left)},${Math.round(resting.top)}`;
       return {
-        left: Number.parseFloat(hint.style.left),
-        top: Number.parseFloat(hint.style.top),
+        left: resting.left,
+        top: resting.top,
         width: rect.width,
         height: rect.height,
+        // Keeps a nudged label from drifting onto the row above or below.
+        bounds: { top: target.top, bottom: target.top + target.height },
       };
     });
 

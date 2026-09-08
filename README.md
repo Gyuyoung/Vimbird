@@ -6,7 +6,7 @@ Press `f`, and every clickable thing on screen gets a short letter label. Type t
 
 ![Thunderbird with Vimbird hint mode active: yellow labels sit on the toolbar buttons, folder rows, message rows and message header buttons](docs/images/hint-mode.png)
 
-*After pressing `f`: typing `j` opens Priya's message, `dj` archives the one on screen, `al` starts a new message.*
+*After pressing `f`: typing `sw` opens Priya's message, `o` archives the one on screen, `w` starts a new message.*
 
 ---
 
@@ -79,7 +79,8 @@ Vimbird is not on [addons.thunderbird.net](https://addons.thunderbird.net). Thun
 - **Labels are prefix-free.** No label is a prefix of another, so a completed label is never ambiguous: typing `s` when both `sa` and `sd` exist just narrows the choices; the typed part dims and the rest stays highlighted.
 - **Only what you can see gets a hint.** Off-screen, hidden, disabled and covered elements are skipped. The message list is virtualised, so only the rows currently rendered are candidates.
 - **Typing is never stolen.** With focus in a text field — subject line, message body, search box — `f` types an `f` and no hints appear.
-- **Crowded areas stay readable.** Labels are drawn on each element's corner, and any that would cover each other — inline links, narrow toolbar buttons, a header full of recipients — move to the nearest free spot next to their element.
+- **Labels sit on the middle of what they point at.** Each label rests against its element's left edge, centred on its height, so a hint on a message row belongs unmistakably to that row and not to the one above it.
+- **Crowded areas stay readable.** Where elements are packed tightly — inline links, narrow toolbar buttons, a header full of recipients — labels that would cover each other move to the nearest free spot next to their element.
 - **Hints dismiss themselves** on scroll, window resize or a mouse click, rather than leaving labels floating over the wrong elements.
 - **`f` does not leak** into Thunderbird while hint mode is active, so it will not trigger folder type-ahead or other shortcuts.
 

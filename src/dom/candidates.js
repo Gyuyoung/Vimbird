@@ -9,6 +9,11 @@ var Vimbird = typeof Vimbird === "object" && Vimbird ? Vimbird : {};
 
 Vimbird.candidates = (() => {
   const MAX_CANDIDATES = 400;
+  const MIN_ROW = 8;
+  // A child stacked below its parent spans the parent's width; a button sitting
+  // on the parent's own first line does not. Only the first kind marks where
+  // the parent's row ends.
+  const STACKED_WIDTH = 0.6;
 
   /**
    * Find hintable elements in a document.
@@ -46,7 +51,43 @@ Vimbird.candidates = (() => {
       found.push({ element, rect });
     }
 
-    return dropDuplicateRects(found);
+    return clipToOwnRow(dropDuplicateRects(found));
+  }
+
+  /**
+   * A folder row's `<li>` wraps the whole subtree beneath it, so its box runs
+   * from its own row down past every child row. Clip a candidate's box where
+   * the first candidate stacked below it starts: what is left is the strip a
+   * user sees as that element, which is where its hint belongs and where a
+   * synthetic click has to land. Without this, the hint for "Local Folders"
+   * sits in the middle of its children and its click lands on one of them.
+   *
+   * Only full-width children count. A message card carries a star button on its
+   * own first line, and treating that as the end of the row would clip the card
+   * to a sliver and drag its label up to the top edge.
+   */
+  function clipToOwnRow(items) {
+    return items.map(item => {
+      const { element, rect } = item;
+      let bottom = rect.top + rect.height;
+      for (const other of items) {
+        // Cheap numeric tests first; `contains` is the expensive part.
+        if (other === item || other.rect.top <= rect.top || other.rect.top >= bottom) {
+          continue;
+        }
+        if (other.rect.width < rect.width * STACKED_WIDTH) {
+          continue;
+        }
+        if (element.contains?.(other.element)) {
+          bottom = other.rect.top;
+        }
+      }
+      const height = bottom - rect.top;
+      if (height >= rect.height || height < MIN_ROW) {
+        return item;
+      }
+      return { element, rect: { ...rect, height } };
+    });
   }
 
   function isIntrinsic(element, selectors) {
@@ -94,7 +135,7 @@ Vimbird.candidates = (() => {
     );
   }
 
-  return { collect, MAX_CANDIDATES };
+  return { collect, clipToOwnRow, MAX_CANDIDATES, MIN_ROW, STACKED_WIDTH };
 })();
 
 if (typeof module === "object" && module.exports) {

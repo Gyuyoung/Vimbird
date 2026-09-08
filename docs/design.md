@@ -244,6 +244,7 @@ In order, cheapest first:
 4. XUL only: check `el.hidden`, `el.getAttribute("collapsed")`, `el.getAttribute("disabled")`
 5. Occlusion: `doc.elementFromPoint()` at the rect's centre and four nearby points; it passes if the result is the candidate itself or one of its ancestors or descendants (the same heuristic Vimium uses)
 6. Nesting: when a rect's IoU with an already-accepted candidate is above a threshold (0.9, say) and the two are in an ancestor-descendant relationship, **only the outer one is kept**
+7. Own row: a folder row's `<li>` wraps the whole subtree beneath it, so its box runs from its own row down past every child row. Each candidate's box is clipped at the first candidate nested inside it, leaving the strip a user sees as that element. Both the hint's resting place and the synthetic click's coordinates come from that strip — without the clip, "Local Folders" is labelled in the middle of its children and clicked there too
 
 DOM access arrives as an injected adapter object (`{ rect, style, elementFromPoint }`), so this is unit-tested against fakes.
 
@@ -278,8 +279,8 @@ Properties it guarantees (all covered by tests):
 
 - Container: a `<div id="vimbird-hint-layer">` appended to `doc.documentElement`. **Measured**: the layer renders correctly in both `messenger.xhtml` and `about:3pane` (`visibility: visible`), lands exactly at the coordinates given, and thanks to `pointer-events: none` leaves `elementFromPoint()` at a target's centre still returning the target.
 - **Namespace**: `document.createElement("div")` was measured to return the XHTML namespace in both documents, since the root is `<html>`. Even so, `createElementNS(XHTML_NS, ...)` is used **explicitly** — `messenger.xhtml` mixes in a XUL default namespace (`<html:body xmlns="…there.is.only.xul">` at `messenger.xhtml:302`), and the explicit call prevents silently creating XUL elements if the container is ever attached elsewhere or a XUL document becomes a target.
-- Position: `position: fixed; left: rect.left px; top: rect.top px;` — each document's own coordinate system, so no conversion.
-- **Resolving overlaps** (`core/placement.js`): left exactly on an element's corner, labels for elements that sit close together — inline links, narrow toolbar buttons — **cover one another**. So labels are drawn at their anchors first, measured once at their real size, and only the colliding ones move to the nearest free spot (up, then down, then sideways, at most three steps). The movement is bounded so a label never loses its association with its element, and a label that finds no free spot stays where it was. The placement calculation is a pure function independent of the DOM, so it is unit-tested. Measured: on a message header with 14 recipients, 9 pairs overlapped at the anchors and none do after spreading.
+- Position: `position: fixed`, in each document's own coordinate system, so no conversion. A label's resting place is its element's left edge, **centred on the element's height** (`core/placement.js` `anchor()`): sitting on the top edge instead puts the label on the border between two rows, where it reads as belonging to the row above and invites typing the wrong hint. The height is only known once the label is in the document, so labels are drawn at the element's corner first and moved after a single measuring pass.
+- **Resolving overlaps** (`core/placement.js`): labels for elements that sit close together — inline links, narrow toolbar buttons — **cover one another**. So the measuring pass also checks for collisions, and only the colliding labels move to the nearest free spot (up, then down, then sideways, at most three steps). A label may not leave the element it points at, though, once that element is comfortably taller than the label: nudged out of a 28px message row it would land on the row below and be read as that row's, and a label that overlaps is a nuisance where a label that lies is a wrong click. Elements about the size of their own label keep the full search — their neighbours are alongside, not above and below. The movement is bounded so a label never loses its association with its element, and a label that finds no free spot stays where it was. The placement calculation is a pure function independent of the DOM, so it is unit-tested. Measured: on a message header with 14 recipients, 9 pairs overlapped at the anchors and none do after spreading.
 - Styling: one inline `<style>` is injected and every rule is scoped under `#vimbird-hint-layer`. Colours, fonts and shadows are stated explicitly to avoid inheriting the theme.
 - The typed characters and the remaining ones are separate `<span>`s in different colours (Vimium's approach), so progress through a multi-character hint is visible (test 14).
 - `z-index` is at maximum. Native `menupopup` content lives in an OS widget layer that cannot be covered, which is stated as out of scope for the MVP.
@@ -299,7 +300,7 @@ Properties it guarantees (all covered by tests):
 The resulting strategy chain:
 
 1. XUL `menu` (a dropdown): `el.openMenu?.(true)` — opening a popup explicitly is more reliable than synthesising a click
-2. **A trusted mousedown → mouseup → click sequence** (`button: 0`, `detail: 1`, at the element's centre). Built with `doc.createEvent("MouseEvent")` in a privileged context, these are trusted events
+2. **A trusted mousedown → mouseup → click sequence** (`button: 0`, `detail: 1`, at the centre of the element's own row strip — see §5.2 step 7). Built with `doc.createEvent("MouseEvent")` in a privileged context, these are trusted events
 3. Fallback: `el.click()`, only when building the sequence fails
 
 **Why `el.click()` is not the first choice** (found through a bug in real use): the thread list's handler returns immediately when `event.button !== 0 || event.detail !== 1` (`tree-view.mjs:1387-1392`), and the event `HTMLElement.click()` produces carries `detail: 0`. The folder tree has no such check, which is why the problem was invisible at first.
@@ -492,12 +493,14 @@ The reasoning:
 | `ranking` | Stability of the screen-position sort, composing offsets across documents, ties |
 | `editable` | Input elements, `contenteditable`, the XUL search bar (test 11) |
 | `visibility` | Fake adapters for a zero rect, outside the viewport, `display:none`, XUL `hidden`/`collapsed`, occlusion, nested removal |
+| `candidates` | Clipping a row that wraps a subtree to its own strip, and leaving every other box alone |
+| `placement` | The resting place (left edge, centred on the height), separating labels that collide, staying inside the viewport |
 
 ### 11.2 Automated end-to-end tests (a real Thunderbird)
 
 Thunderbird's built-in **Marionette** is used to connect to the chrome process, send real key events and inspect the real DOM (`test/e2e/`). A throwaway profile is created and launched headless, keeping the user's own profile entirely out of it.
 
-Thirteen scenarios cover: hints appearing across documents, label uniqueness and prefix-freedom, labels not overlapping, activating a toolbar button, `Esc` cancelling, switching folders by hint with a partial input that only narrows, message header hints, activating a thread row, protecting text input, compose window hints, dismissal on scroll and resize, and keys not leaking.
+Fourteen scenarios cover: hints appearing across documents, label uniqueness and prefix-freedom, labels not overlapping, labels sitting on the middle of their row, activating a toolbar button, `Esc` cancelling, switching folders by hint with a partial input that only narrows, message header hints, activating a thread row, protecting text input, compose window hints, dismissal on scroll and resize, and keys not leaking.
 
 **Limits**: headless has no window manager, so OS focus cannot leave the 3-pane window. The two compose-window scenarios only exercise the code path, through a synthetic `keydown`, and need manual confirmation (`docs/testing.md`).
 
@@ -523,7 +526,7 @@ Spikes 0 to 3 were completed with **headless Thunderbird 155 and Marionette befo
 | ~~Spike 3~~ | Comparing activation strategies | ✅ done → the trusted mouse sequence is first choice |
 | ~~M1~~ | Hint mode end to end in a single (chrome) document | ✅ done |
 | ~~M2~~ | Extending to several documents (3pane, message) with global labels | ✅ done — chrome/about:3pane/about:message/compose hinted together |
-| ~~M3~~ | Edge cases (editing focus, ending on scroll/resize, the compose window) | ✅ done — 43 unit tests and 13 E2E scenarios passing |
+| ~~M3~~ | Edge cases (editing focus, ending on scroll/resize, the compose window) | ✅ done — 52 unit tests and 14 E2E scenarios passing |
 
 Three things the measurements corrected during implementation:
 

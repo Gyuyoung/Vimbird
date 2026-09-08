@@ -61,7 +61,9 @@ Vimbird.createAgent = function createAgent(win) {
         return null;
       }
       Vimbird.overlay.hide(win);
-      return Vimbird.activate.activateElement(entry.element, win, options ?? {});
+      // Pass the collected rect: for a row that wraps a subtree it is the row's
+      // own strip, while the element's own box reaches down over its children.
+      return Vimbird.activate.activateElement(entry.element, win, { ...(options ?? {}), rect: entry.rect });
     },
 
     clear() {

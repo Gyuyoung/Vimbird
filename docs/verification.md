@@ -153,7 +153,25 @@ Eighty is just under the 81 labels that a nine-character alphabet can express in
 
 ---
 
-## 7. E2E results (13/13)
+## 7. A folder row's box is not the row you see
+
+Measured while moving labels to the middle of their element. In the folder tree the rows are nested `<li>`s, so a parent's box covers its whole subtree:
+
+```
+li Local Folders   top= 57 height=140    ← the row is 28px; the box wraps its children
+li Trash           top= 85 height= 28
+li Outbox          top=113 height= 28
+li VimbirdA        top=141 height= 28
+li VimbirdB        top=169 height= 28
+```
+
+Centring on that 140px box puts the parent's label at y=127, exactly on Outbox's label, and the de-overlap step then pushes Outbox's label onto VimbirdA, VimbirdA's onto VimbirdB, and so on — every folder label ends up one row too low. The measurement also showed the same box misplacing the synthetic click: `activate.js` aims at the centre of the element's rect, which for "Local Folders" is inside a child row.
+
+Both are fixed by clipping a candidate's box at the first candidate nested inside it (`candidates.js`, `clipToOwnRow`), which leaves the 28px strip the user sees as that row.
+
+---
+
+## 8. E2E results (14/14)
 
 [`test/e2e/run_e2e.py`](../test/e2e/run_e2e.py) run against a real Thunderbird 155. The source-directory install and the packaged-XPI install pass identically.
 
@@ -161,6 +179,7 @@ Eighty is just under the 81 labels that a nine-character alphabet can express in
 PASS  hints appear in toolbar and 3-pane — 20 hints across ['about:3pane', 'messenger.xhtml']
 PASS  labels unique and prefix-free — 20 labels, 5 multi-character, all prefix-free
 PASS  hint labels do not overlap — 70 labels on '[recipients] crowded header': 9 would overlap on raw anchors, 0 do after spreading
+PASS  hints sit on the middle of their row — 5 rows checked, worst offset 0px on rows 28px tall
 PASS  hint activates a toolbar button — hint 'w' opened the compose window
 PASS  Escape cancels hint mode — 70 hints dismissed
 PASS  folder hint switches folders, partial input narrows — hint 'su' switched folders, 'a' narrowed 54 longer labels
@@ -173,7 +192,7 @@ PASS  resize dismisses hints — 47 hints dismissed on resize (synthetic)
 PASS  f does not leak into Thunderbird — f consumed before Thunderbird's own handlers
 ```
 
-### 7.1 Limits of the headless environment
+### 8.1 Limits of the headless environment
 
 xvfb has no window manager, which imposes two limits.
 
@@ -184,12 +203,12 @@ The two compose-window items and the resize therefore need one more pass through
 
 ---
 
-## 8. Reproducing all of this
+## 9. Reproducing all of this
 
 ```bash
 npm test                     # pure-logic unit tests (no Thunderbird needed)
 npm run build                # writes dist/vimbird-<version>.xpi
-npm run test:e2e             # launches headless Thunderbird and runs the 13 scenarios
+npm run test:e2e             # launches headless Thunderbird and runs the 14 scenarios
 python3 test/e2e/run_e2e.py --xpi          # the same run against the packaged XPI
 python3 test/e2e/run_e2e.py --keep         # leaves Thunderbird up for inspection
 ```

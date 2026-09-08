@@ -50,7 +50,7 @@ Vimbird.activate = (() => {
 
   function syntheticMouse(element, win, options) {
     const doc = element.ownerDocument;
-    const rect = element.getBoundingClientRect();
+    const rect = options.rect ?? element.getBoundingClientRect();
     const clientX = rect.left + rect.width / 2;
     const clientY = rect.top + rect.height / 2;
     const screenX = (win.mozInnerScreenX ?? 0) + clientX;

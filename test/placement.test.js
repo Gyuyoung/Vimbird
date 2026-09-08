@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { placement } = require("../src/core/placement.js");
-const { layoutLabels } = placement;
+const { anchor, layoutLabels } = placement;
 
 const VIEWPORT = { width: 1000, height: 800 };
 const LABEL = { width: 22, height: 16 };
@@ -34,6 +34,30 @@ function assertNoOverlaps(positions) {
     }
   }
 }
+
+test("a label rests on the middle of its element's height", () => {
+  // A message list row: 28px tall, label 16px → 6px of row above and below.
+  assert.deepEqual(anchor({ left: 40, top: 100, width: 600, height: 28 }, LABEL), {
+    left: 40,
+    top: 106,
+  });
+});
+
+test("a label on a short element straddles it evenly", () => {
+  // A 10px element is shorter than the label, so the label overhangs equally
+  // rather than being pushed onto one edge.
+  assert.deepEqual(anchor({ left: 0, top: 200, width: 30, height: 10 }, LABEL), {
+    left: 0,
+    top: 197,
+  });
+});
+
+test("a label never leaves its element's left edge", () => {
+  for (const height of [1, 16, 28, 200]) {
+    const { left } = anchor({ left: 314, top: 0, width: 50, height }, LABEL);
+    assert.equal(left, 314, `height=${height}`);
+  }
+});
 
 test("labels that do not collide keep their anchor position", () => {
   const positions = layoutLabels([label(10, 10), label(400, 300)], VIEWPORT);
@@ -83,6 +107,34 @@ test("rows of the message list are left alone", () => {
     layoutLabels(labels, VIEWPORT),
     labels.map(({ left, top }) => ({ left, top }))
   );
+});
+
+test("a label never leaves the row it points at", () => {
+  // Three labels anchored on the same spot inside one 28px message row. Without
+  // the bound the loser would be pushed 18px down, onto the next row, where it
+  // reads as that row's label and clicks the wrong message.
+  const row = { top: 100, bottom: 128 };
+  const labels = [
+    { ...label(0, 106), bounds: row },
+    { ...label(0, 106), bounds: row },
+    { ...label(0, 106), bounds: row },
+  ];
+  for (const position of layoutLabels(labels, VIEWPORT)) {
+    assert.ok(
+      position.top >= row.top - 1 && position.top + LABEL.height <= row.bottom + 1,
+      `label at ${position.top} left the row ${JSON.stringify(row)}`
+    );
+  }
+});
+
+test("labels on elements no taller than themselves still spread out", () => {
+  // Inline links in a message header: their neighbours are alongside, not above
+  // and below, so confining them would only bring the overlaps back.
+  const labels = [100, 112, 124].map(left => ({
+    ...label(left, 200),
+    bounds: { top: 198, bottom: 216 },
+  }));
+  assertNoOverlaps(layoutLabels(labels, VIEWPORT));
 });
 
 test("an impossible cluster still returns one position per label", () => {
