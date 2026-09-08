@@ -12,20 +12,11 @@ Press `f`, and every clickable thing on screen gets a short letter label. Type t
 
 ## 1. Introduction
 
-Vimbird brings Vimium's hint mode to Thunderbird's own interface — not to web pages inside it, but to the toolbar, folder tree, message list, message header and compose window.
-
-**What gets hinted**
-
-| Document | Elements |
-|---|---|
-| Main window (`messenger.xhtml`) | Unified toolbar buttons, spaces toolbar, tabs, menu bar, window buttons |
-| 3-pane (`about:3pane`) | Folder tree rows, message list rows, folder pane buttons |
-| Message (`about:message`) | Message header buttons — Reply, Forward, Archive, … |
-| Compose window (`msgcompose`) | Its toolbar and buttons |
+Vimbird brings Vimium's hint mode to Thunderbird's own interface — not to web pages inside it. As the screenshot above shows, labels land on the unified toolbar, the spaces and tab bars, the menu bar, folder rows, message list rows and the buttons in a message's header. The compose window gets hints of its own.
 
 Element IDs are never hardcoded. Candidates are found by tag name, ARIA role and the `is=` attribute of Thunderbird's custom elements, so the engine keeps working when Thunderbird rearranges its widgets. All Thunderbird-specific knowledge lives in one file, [`src/tb/targets.js`](src/tb/targets.js).
 
-**Status: MVP.** Hint mode works and is covered by 33 unit tests plus 12 end-to-end scenarios run against a real Thunderbird 155. Not implemented yet: hints for links inside message bodies, the rest of the Vim key set (`j/k`, `gg/G`, `o`, `r`, `a`, `x`, `d`, `/`), a preferences UI, and hints inside native menu popups.
+**Status: MVP.** Hint mode works and is covered by 40 unit tests plus 13 end-to-end scenarios run against a real Thunderbird 155. Not implemented yet: hints for links inside message bodies, the rest of the Vim key set (`j/k`, `gg/G`, `o`, `r`, `a`, `x`, `d`, `/`), a preferences UI, and hints inside native menu popups.
 
 **Why this needs an Experiment API**
 
