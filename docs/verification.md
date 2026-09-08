@@ -1,27 +1,27 @@
-# 실측 검증 기록
+# Measured verification log
 
-작성일: 2026-09-08
-대상 빌드: **Thunderbird 155.0** (snap `latest/stable` rev 1240, BuildID `20260828084831`)
+Written: 2026-09-08
+Build under test: **Thunderbird 155.0** (snap `latest/stable` rev 1240, BuildID `20260828084831`)
 
-이 문서는 [`research.md`](research.md)·[`design.md`](design.md)의 주장 중 **문서가 아니라 실제 실행으로 확인한 것들**과 그 방법을 기록합니다. 설계 결정의 근거이므로, Thunderbird를 업그레이드한 뒤 동작이 이상하면 여기부터 다시 돌려보면 됩니다.
+This document records which claims in [`research.md`](research.md) and [`design.md`](design.md) were confirmed **by running the thing rather than by reading about it**, and how. They are the grounds for the design decisions, so if behaviour looks wrong after a Thunderbird upgrade, re-run these first.
 
 ---
 
-## 1. 검증 방법: Marionette
+## 1. Method: Marionette
 
-Thunderbird는 Firefox와 동일한 자동화 인터페이스인 **Marionette**를 내장하고 있습니다(빌드 내 `chrome://remote/content/marionette`). 이걸 쓰면 **chrome 프로세스 안에서 임의의 JS를 실행**할 수 있어, 추측 대신 실제 DOM·API를 직접 확인할 수 있습니다.
+Thunderbird ships **Marionette**, the same automation interface as Firefox (`chrome://remote/content/marionette` inside the build). It can **run arbitrary JavaScript inside the chrome process**, so the real DOM and the real APIs can be inspected instead of guessed at.
 
 ```bash
-xvfb-run -a thunderbird -profile <테스트프로필> -no-remote \
+xvfb-run -a thunderbird -profile <test profile> -no-remote \
          -marionette -remote-allow-system-access
-# → 127.0.0.1:2828 에서 대기
+# → listens on 127.0.0.1:2828
 ```
 
-- `-remote-allow-system-access`가 없으면 chrome 컨텍스트 전환이 거부됩니다(TB 155에서 새로 요구됨).
-- 클라이언트는 외부 의존성 없이 [`test/e2e/marionette.py`](../test/e2e/marionette.py)로 직접 구현했습니다(길이 접두 JSON 프로토콜).
-- snap 패키지는 샌드박스 때문에 **프로필이 `$HOME` 안에** 있어야 합니다. 테스트는 `~/snap/thunderbird/common/vimbird-e2e-profile`을 씁니다.
+- Without `-remote-allow-system-access` the switch to the chrome context is refused (newly required in TB 155).
+- The client is [`test/e2e/marionette.py`](../test/e2e/marionette.py), written from scratch with no external dependencies (length-prefixed JSON protocol).
+- The snap package is sandboxed, so **the profile has to live inside `$HOME`**. The tests use `~/snap/thunderbird/common/vimbird-e2e-profile`.
 
-`omni.ja`(빌드 내 소스 아카이브)도 함께 열어 대조했습니다:
+`omni.ja`, the source archive inside the build, was unpacked and cross-checked as well:
 
 ```bash
 unzip -qq /snap/thunderbird/current/usr/lib/thunderbird/omni.ja -d /tmp/tb
@@ -29,69 +29,69 @@ unzip -qq /snap/thunderbird/current/usr/lib/thunderbird/omni.ja -d /tmp/tb
 
 ---
 
-## 2. UI 구조 실측
+## 2. UI structure, as measured
 
-| 확인 항목 | 결과 |
+| Checked | Result |
 |---|---|
-| 메인 창 windowtype | `mail:3pane` (여전히 유효) |
-| 메인 창 루트 요소 | `<html>` (XUL `<window>` 아님) |
-| 3-pane 문서 | `about:3pane`, 탭 내부 `<browser>`에 로드 |
-| **`browser.isRemoteBrowser`** | **`false`** — 부모 프로세스 동기 접근 가능 |
-| 폴더 트리 | `<ul id="folderTree" is="tree-listbox">`, 행은 `<li is="folder-tree-row">` |
-| 스레드 목록 | `<tree-view id="threadTree">`, 행은 `<tr is="tree-view-table-row">` / `<thread-card>` |
-| 메시지 표시 | `about:message` (역시 in-process chrome) |
-| 메시지 헤더 버튼 | `about:message` 문서의 `.message-header-view-button` (XUL `toolbarbutton`) |
-| 통합 툴바 버튼 | `<button is="unified-toolbar-button">`, **Shadow DOM 없음** |
-| `document.createElement("div")` | 두 문서 모두 XHTML 네임스페이스 반환 |
-| 작성 창 | 별도 최상위 창, `windowtype="msgcompose"` |
+| Main window windowtype | `mail:3pane` (still valid) |
+| Main window root element | `<html>`, not a XUL `<window>` |
+| 3-pane document | `about:3pane`, loaded in a `<browser>` inside the tab |
+| **`browser.isRemoteBrowser`** | **`false`** — synchronous access from the parent process |
+| Folder tree | `<ul id="folderTree" is="tree-listbox">`, rows are `<li is="folder-tree-row">` |
+| Thread list | `<tree-view id="threadTree">`, rows are `<tr is="tree-view-table-row">` / `<thread-card>` |
+| Message display | `about:message`, also in-process chrome |
+| Message header buttons | `.message-header-view-button` in the `about:message` document (XUL `toolbarbutton`) |
+| Unified toolbar buttons | `<button is="unified-toolbar-button">`, **no shadow DOM** |
+| `document.createElement("div")` | Returns the XHTML namespace in both documents |
+| Compose window | A separate top-level window, `windowtype="msgcompose"` |
 
-셀렉터 스캔 결과(빈 프로필, 1600×1000): chrome 문서 가시 후보 60개, `about:3pane` 6개. 메시지를 선택하면 `about:message`에서 13개가 추가됩니다.
+Selector scan (empty profile, 1600×1000): 60 visible candidates in the chrome document, 6 in `about:3pane`. Selecting a message adds 13 more from `about:message`.
 
 ---
 
-## 3. 키 이벤트: 문서 경계를 넘는가? (설계 최대 쟁점)
+## 3. Do key events cross the document boundary? (the biggest design question)
 
-`about:3pane`의 `#folderTree`에 포커스를 두고 실제 키(`WebDriver:PerformActions`)로 `f`를 눌렀을 때 리스너 발화 순서:
+With focus on `#folderTree` inside `about:3pane` and a real `f` keystroke (`WebDriver:PerformActions`), listeners fired in this order:
 
 ```
-1. chromeWin.capture      target=about:3pane <ul>   ← 바깥 chrome 창이 가장 먼저
+1. chromeWin.capture      target=about:3pane <ul>   ← the outer chrome window goes first
 2. a3pWin.capture         target=about:3pane <ul>
 3. chromeDoc.bubble       target=about:3pane <ul>
 4. chromeWin.sysgroup     target=about:3pane <ul>
 5. a3pWin.sysgroup        target=about:3pane <ul>
 ```
 
-**결론**: in-process `<browser>` 안에서 발생한 키 이벤트는 바깥 chrome 창의 capture 리스너에 도달하며 순서상 가장 먼저다. → 창당 리스너 하나로 충분(설계 §6 전략 A).
+**Conclusion**: a key event raised inside an in-process `<browser>` does reach a capture listener on the outer chrome window, and reaches it first. One listener per window is therefore enough (design §6, strategy A).
 
-### 3.1 키 소비 범위
+### 3.1 How much of the key is consumed
 
-chrome 창 capture에서 `preventDefault() + stopPropagation()` 호출 시:
+Calling `preventDefault() + stopPropagation()` from the chrome window's capture listener:
 
-| 리스너 | `f` (소비) | `j` (미소비) |
+| Listener | `f` (consumed) | `j` (not consumed) |
 |---|---|---|
-| `chromeWin.capture` | 발화 | 발화 |
-| `a3pWin.capture` | **차단** | 발화 |
-| `#folderTree` 자체 핸들러 | **차단** | 발화 |
-| `a3pWin.sysgroup` | 발화(차단 안 됨) | 발화 |
+| `chromeWin.capture` | fires | fires |
+| `a3pWin.capture` | **blocked** | fires |
+| `#folderTree`'s own handler | **blocked** | fires |
+| `a3pWin.sysgroup` | fires (not blocked) | fires |
 
-→ 기본 그룹은 완전히 차단되지만 **시스템 그룹은 별도 디스패치 그룹이라 막히지 않는다.** 그래서 Vimbird는 chrome 창에 리스너를 **두 개**(기본 그룹 + 시스템 그룹, 둘 다 capture) 붙이고, 같은 이벤트를 두 번 처리하지 않도록 `WeakMap`으로 판정 결과를 캐시합니다.
+So the default group is blocked completely, but **the system group is a separate dispatch group that `stopPropagation` cannot reach.** Vimbird therefore attaches **two** listeners to the chrome window (default group and system group, both capturing) and caches the decision in a `WeakMap` so the same event is not handled twice.
 
 ---
 
-## 4. 활성화(클릭) 전략 비교
+## 4. Activation strategies compared
 
-관찰 가능한 부작용으로 성공 여부를 판정했습니다(앱 메뉴 패널이 열리는가 / 작성 창이 생기는가 / 폴더 선택이 바뀌는가).
+Success was judged by observable side effects: does the app menu panel open, does a compose window appear, does the folder selection change?
 
-| 전략 | XUL `toolbarbutton` | HTML `button` | 폴더 행 `li[is]` | **스레드 행 `tr[is]`** |
+| Strategy | XUL `toolbarbutton` | HTML `button` | Folder row `li[is]` | **Thread row `tr[is]`** |
 |---|---|---|---|---|
-| `el.click()` | ✅ | ✅ | ✅ | **❌ 무반응** |
+| `el.click()` | ✅ | ✅ | ✅ | **❌ nothing happens** |
 | `createEvent("MouseEvent")` + `initMouseEvent` (mousedown→mouseup→click) | ✅ | ✅ | ✅ | **✅** |
 | `createEvent("XULCommandEvent")` | ❌ | ❌ | — | — |
-| `windowUtils.sendMouseEvent(...)` | **API 없음** | — | — | — |
+| `windowUtils.sendMouseEvent(...)` | **no such API** | — | — | — |
 
-### 4.0 `el.click()`이 메일 목록에서만 실패하는 이유
+### 4.0 Why `el.click()` fails in the message list and nowhere else
 
-실사용 제보로 드러난 버그입니다. 스레드 목록의 클릭 핸들러가 이렇게 시작합니다(`tree-view.mjs:1387-1392`):
+A bug found in real use. The thread list's click handler opens like this (`tree-view.mjs:1387-1392`):
 
 ```js
 // Bail out on non primary or double clicks.
@@ -101,15 +101,15 @@ if (event.button !== 0 || event.detail !== 1) {
 }
 ```
 
-`HTMLElement.click()`이 만드는 click 이벤트는 **`detail: 0`** 이라 이 검사에 걸려 그대로 반환됩니다 → 행이 선택되지 않고 메시지 창도 바뀌지 않습니다. 폴더 트리(`tree-listbox`)에는 같은 검사가 없어 `click()`으로도 동작했기 때문에, 처음에는 문제가 드러나지 않았습니다.
+The click event produced by `HTMLElement.click()` carries **`detail: 0`**, so it trips this check and returns immediately — the row is not selected and the message pane does not change. The folder tree (`tree-listbox`) has no such check and worked fine with `click()`, which is why the problem stayed hidden at first.
 
-**결론**: 활성화는 `button: 0`, `detail: 1`을 갖춘 **mousedown → mouseup → click 시퀀스**로 통일합니다. 이것이 실제 클릭에 가장 가깝고 위 네 종류 위젯 모두에서 동작합니다. `el.click()`은 시퀀스 생성이 실패할 때의 폴백으로만 남깁니다.
+**Conclusion**: activation is a **mousedown → mouseup → click sequence** carrying `button: 0` and `detail: 1`. That is the closest thing to a real click and works on all four widget kinds above. `el.click()` remains only as a fallback for when building the sequence throws.
 
-**테스트 교훈**: 처음 E2E 시나리오는 `selectedIndex >= 0`만 확인해서 **거짓 통과**했습니다(직전 시나리오의 선택 상태가 남아 있었음). 지금은 다른 행에서 출발해 ① 선택 인덱스가 목표 행으로 바뀌고 ② `about:message`의 `gMessage.subject`가 그 행의 제목과 일치하는지까지 확인합니다.
+**Lesson for the tests**: the original E2E scenario only asserted `selectedIndex >= 0` and therefore **passed falsely** — the selection was left over from the previous scenario. It now starts from a different row and checks both that the selected index moved to the target row and that `gMessage.subject` in `about:message` matches that row's subject.
 
-### 4.1 중요한 정정: `sendMouseEvent`는 더 이상 없다
+### 4.1 An important correction: `sendMouseEvent` is gone
 
-`nsIDOMWindowUtils`에 남아 있는 이벤트 합성 API를 실제로 조회한 결과:
+Querying what event-synthesis API `nsIDOMWindowUtils` actually still has:
 
 ```
 sendMouseEvent                          undefined
@@ -120,65 +120,78 @@ sendNativeKeyEvent                      function
 dispatchDOMEventViaPresShellForTesting  function
 ```
 
-오래된 애드온·블로그에서 흔히 보이는 `windowUtils.sendMouseEvent(...)` 기반 클릭 합성 코드는 **TB 155에서 그대로 실패**합니다. Vimbird는 `el.click()`을 1순위로, trusted MouseEvent 시퀀스를 폴백으로 사용합니다.
+The `windowUtils.sendMouseEvent(...)` click synthesis that older add-ons and blog posts use **simply fails on TB 155**. The design document was written around that call and had to be corrected against the build.
 
-또한 오버레이가 떠 있어도 대상 중심의 `elementFromPoint()`가 대상 요소를 반환함을 확인했습니다(`pointer-events: none` 덕분).
+It was also confirmed that `elementFromPoint()` at an element's centre still returns that element while the hint overlay is up, thanks to `pointer-events: none`.
 
 ---
 
-## 5. 확장 로딩 관련 실측
+## 5. Extension loading, as measured
 
-| 항목 | 결과 |
+| Item | Result |
 |---|---|
-| `extensions.experiments.enabled` | `true` (기본값) |
-| `extensions.experiments.suppressed` | `false` (억제 스위치는 존재하나 꺼져 있음) |
+| `extensions.experiments.enabled` | `true` (default) |
+| `extensions.experiments.suppressed` | `false` (the suppression switch exists but is off) |
 | `extensions.experiments.allowed` | `tbpro-add-on@thunderbird.net,owl@beonex.com` |
-| 억제 시 임시설치 예외 | `!addon.temporarilyInstalled` 조건으로 개발 워크플로는 영향 없음 |
-| `experiment_apis` manifest 제약 | 없음 → MV2/MV3 모두 가능 |
-| `events: ["startup"]` | `SchemaAPIManager.onStartup()`이 `api.onStartup()` 호출 → background 수명과 무관 |
-| **스크립트 로딩** | `Services.scriptloader.loadSubScript`는 확장 리소스 URL을 **거부**("Trying to load untrusted URI"). `loadSubScriptWithOptions(url, { target, allowUnsafeURL: true })`가 정답 — 프레임워크 자신이 experiment 스크립트를 이렇게 로드함(`ExtensionCommon.sys.mjs:1702`) |
-| 설치 경로 | 소스 디렉터리(`file://`)와 패키징된 XPI(`jar:file://`) **양쪽 모두** 동작 확인 |
+| Temporary installs when suppressed | The `!addon.temporarilyInstalled` condition keeps the development workflow working |
+| `experiment_apis` manifest constraints | None — MV2 and MV3 both work |
+| `events: ["startup"]` | `SchemaAPIManager.onStartup()` calls `api.onStartup()`, independent of the background page's lifetime |
+| **Script loading** | `Services.scriptloader.loadSubScript` **refuses** extension resource URLs ("Trying to load untrusted URI"). `loadSubScriptWithOptions(url, { target, allowUnsafeURL: true })` is the answer — it is how the framework itself loads experiment scripts (`ExtensionCommon.sys.mjs:1702`) |
+| Install paths | Confirmed working from **both** a source directory (`file://`) and a packaged XPI (`jar:file://`) |
 
 ---
 
-## 6. E2E 결과 (12/12)
+## 6. How many hints does a real window produce?
 
-[`test/e2e/run_e2e.py`](../test/e2e/run_e2e.py)를 실제 Thunderbird 155에 대해 실행한 결과입니다. 소스 디렉터리 설치와 XPI 설치 모두 동일하게 통과했습니다.
+This decides how long the labels have to be, so it was measured rather than assumed. A 1952×1092 window with 12 folders and a 60-message folder open, with one message displayed:
+
+```
+total 80 hints — messenger.xhtml:13, about:3pane:52, about:message:15
+```
+
+Eighty is just under the 81 labels that a nine-character alphabet can express in two keystrokes, so a slightly larger window spilled into three-character labels. The alphabet is now the home row plus the row above it (19 characters, 361 two-character labels), and the same window measures 15 single-character labels plus 65 two-character ones.
+
+---
+
+## 7. E2E results (13/13)
+
+[`test/e2e/run_e2e.py`](../test/e2e/run_e2e.py) run against a real Thunderbird 155. The source-directory install and the packaged-XPI install pass identically.
 
 ```
 PASS  hints appear in toolbar and 3-pane — 20 hints across ['about:3pane', 'messenger.xhtml']
-PASS  labels unique and prefix-free — 20 labels, 20 multi-character, all prefix-free
-PASS  hint activates a toolbar button — hint 'al' opened the compose window
-PASS  Escape cancels hint mode — 20 hints dismissed
-PASS  multi-character hint selects a folder — hint 'sd' switched folders
-PASS  message header is hinted — 44 hints, message header button hinted as 'fa'
-PASS  thread row hint selects a message — row hint 'sg' selected message index 0
+PASS  labels unique and prefix-free — 20 labels, 5 multi-character, all prefix-free
+PASS  hint labels do not overlap — 70 labels on '[recipients] crowded header': 9 would overlap on raw anchors, 0 do after spreading
+PASS  hint activates a toolbar button — hint 'w' opened the compose window
+PASS  Escape cancels hint mode — 70 hints dismissed
+PASS  folder hint switches folders, partial input narrows — hint 'su' switched folders, 'a' narrowed 54 longer labels
+PASS  message header is hinted — 47 hints, message header button hinted as 'as'
+PASS  thread row hint selects a message — row hint 'ay' opened '[1] Vimbird test message' in the message pane
 PASS  text input keeps its keystrokes — f left untouched for the subject field
 PASS  compose window is hinted — 25 hints in the compose window
-PASS  scroll dismisses hints — 44 hints dismissed on scroll
-PASS  resize dismisses hints — 44 hints dismissed on resize
+PASS  scroll dismisses hints — 47 hints dismissed on scroll
+PASS  resize dismisses hints — 47 hints dismissed on resize (synthetic)
 PASS  f does not leak into Thunderbird — f consumed before Thunderbird's own handlers
 ```
 
-### 6.1 헤드리스 환경의 한계
+### 7.1 Limits of the headless environment
 
-xvfb에는 창 관리자가 없어 두 가지 제약이 있습니다.
+xvfb has no window manager, which imposes two limits.
 
-1. **OS 포커스가 3-pane 창을 떠나지 못합니다.** `Services.focus.activeWindow = composeWindow` 대입도 무시됩니다. 그래서 작성 창을 대상으로 하는 두 시나리오(작성 창 힌트, 텍스트 입력 보호)는 실제 키 대신 **합성 `keydown`을 해당 창에 직접 디스패치**해 검증합니다. 리스너·가드·렌더링 경로는 동일하게 실행되지만 OS 레벨 키 전달까지는 확인하지 못합니다.
-2. **`window.resizeTo()`가 무시될 수 있습니다.** 헤드리스 창이 가상 화면보다 커지면(관측: 창 1332×1460 vs 화면 1600×1000) 크기가 바뀌지 않습니다. 리사이즈 시나리오는 실제 크기 변경을 먼저 시도하고, 변하지 않으면 합성 `resize` 이벤트로 대체하며 결과에 어느 쪽을 썼는지 표시합니다.
+1. **OS focus cannot leave the 3-pane window.** Even assigning `Services.focus.activeWindow = composeWindow` is ignored. The two scenarios that target the compose window (compose hints, protecting text input) therefore **dispatch a synthetic `keydown` directly at that window** instead of pressing a real key. The listener, the guard and the rendering path all run as usual, but OS-level key delivery is not covered.
+2. **`window.resizeTo()` may be ignored.** When the headless window is larger than the virtual screen (observed: a 1332×1460 window on a 1600×1000 screen) the size does not change. The resize scenario tries a real resize first, falls back to a synthetic `resize` event, and says in its result line which one it used.
 
-따라서 작성 창 관련 두 항목과 리사이즈는 [`testing.md`](testing.md)의 수동 체크리스트로 한 번 더 확인해야 합니다.
+The two compose-window items and the resize therefore need one more pass through the manual checklist in [`testing.md`](testing.md).
 
 ---
 
-## 7. 재현 방법
+## 8. Reproducing all of this
 
 ```bash
-npm test                     # 순수 로직 단위 테스트 (Thunderbird 불필요)
-npm run build                # dist/vimbird-<version>.xpi 생성
-npm run test:e2e             # 헤드리스 Thunderbird 자동 실행 + 12개 시나리오
-python3 test/e2e/run_e2e.py --xpi          # 패키징된 XPI로 동일 검증
-python3 test/e2e/run_e2e.py --keep         # 검사용으로 Thunderbird를 띄워 둔 채 종료
+npm test                     # pure-logic unit tests (no Thunderbird needed)
+npm run build                # writes dist/vimbird-<version>.xpi
+npm run test:e2e             # launches headless Thunderbird and runs the 13 scenarios
+python3 test/e2e/run_e2e.py --xpi          # the same run against the packaged XPI
+python3 test/e2e/run_e2e.py --keep         # leaves Thunderbird up for inspection
 ```
 
-`--keep`으로 띄워 둔 인스턴스에는 Marionette가 계속 열려 있으므로, `test/e2e/marionette.py`를 직접 import해 chrome JS를 실행하며 새 가설을 즉석에서 검증할 수 있습니다.
+An instance left running by `--keep` keeps Marionette open, so `test/e2e/marionette.py` can be imported directly to run chrome JavaScript and test a new hypothesis on the spot.
