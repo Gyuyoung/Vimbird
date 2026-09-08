@@ -4,19 +4,9 @@ Vimium-style keyboard hints for Thunderbird.
 
 Press `f`, and every clickable thing on screen gets a short letter label. Type the label and that element is clicked — no mouse, no tabbing through the UI. Press `Esc` to cancel.
 
-```
-after pressing f
+![Thunderbird with Vimbird hint mode active: yellow labels sit on the toolbar buttons, folder rows, message rows and message header buttons](docs/images/hint-mode.png)
 
-┌──────────────────────────────────────────────────────────┐
-│ [aa] Get Messages   [ad] New Message   [af] Address Book │
-├──────────────────┬───────────────────────────────────────┤
-│ [d]  Inbox       │ [sa] Alice   Meeting agenda           │
-│ [f]  Sent        │ [sd] Bob     Review request           │
-│ [g]  Drafts      │ [sf] Carol   Release notes            │
-└──────────────────┴───────────────────────────────────────┘
-
-type sd  →  Bob's message opens in the message pane
-```
+*After pressing `f`: typing `j` opens Priya's message, `dj` archives the one on screen, `al` starts a new message.*
 
 ---
 
