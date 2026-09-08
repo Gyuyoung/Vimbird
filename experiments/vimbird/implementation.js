@@ -32,6 +32,7 @@ var VimbirdConst = {
     "src/core/editable.js",
   ],
   AGENT_SCRIPTS: [
+    "src/core/placement.js",
     "src/tb/targets.js",
     "src/dom/visibility.js",
     "src/dom/candidates.js",

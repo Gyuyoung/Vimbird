@@ -147,6 +147,21 @@ if (folder.getTotalMessages(false) < 3) {
   for (let i = 0; i < 3; i++) {
     folder.addMessage(raw.replace("Subject: ", `Subject: [${i}] `));
   }
+  // A message whose header is crowded with inline recipient elements: this is
+  // where hint labels used to pile up on top of each other.
+  const many = [
+    "From - Mon Sep 08 00:00:00 2026",
+    "From: Alice <alice@example.com>",
+    "To: " + Array.from({ length: 8 }, (_, i) => `P${i} <p${i}@example.com>`).join(", "),
+    "Cc: " + Array.from({ length: 6 }, (_, i) => `C${i} <c${i}@example.com>`).join(", "),
+    "Subject: [recipients] crowded header",
+    "Date: Mon, 8 Sep 2026 00:00:00 +0900",
+    "Content-Type: text/plain; charset=UTF-8",
+    "",
+    "Crowded header test.",
+    "",
+  ].join("\r\n");
+  folder.addMessage(many);
 }
 return { folders: [...root.subFolders].map(f => f.name), messages: folder.getTotalMessages(false) };
 """
@@ -196,6 +211,96 @@ def scenario_labels_unique(mn):
             check(a == b or not b.startswith(a), f"label {a!r} is a prefix of {b!r}")
     multi = [label for label in labels if len(label) > 1]
     return f"{len(labels)} labels, {len(multi)} multi-character, all prefix-free"
+
+
+def scenario_hints_do_not_overlap(mn):
+    """Labels must stay readable where elements sit close together.
+
+    Compares the drawn positions against the raw anchors (each element's own
+    corner, where labels used to be dropped): the anchor layout is expected to
+    collide, the drawn one must not.
+    """
+    # Open a message first so the dense message-header button row is on screen.
+    mn.script(PRELUDE + 'vb.folderRow("VimbirdA").click(); return true;')
+    time.sleep(2)
+    opened = mn.script(
+        PRELUDE
+        + """
+        const a3p = vb.tabmail().currentAbout3Pane;
+        const view = a3p.gDBView;
+        for (let i = 0; i < view.rowCount; i++) {
+          if (view.getMsgHdrAt(i).subject.includes("recipients")) {
+            a3p.threadTree.selectedIndex = i;
+            return { index: i, subject: view.getMsgHdrAt(i).subject };
+          }
+        }
+        a3p.threadTree.selectedIndex = 0;
+        return { index: 0, subject: view.getMsgHdrAt(0).subject };
+        """
+    )
+    time.sleep(3)
+    mn.script(
+        PRELUDE
+        + """
+        // Expand the recipient list if the header collapsed it.
+        const am = vb.tabmail().currentAboutMessage;
+        am && am.document.querySelector("#toggleRecipients, .show-more-recipients")?.click();
+        return true;
+        """
+    )
+    time.sleep(1.5)
+    start_hint_mode(mn)
+
+    result = mn.script(
+        PRELUDE
+        + """
+        function collide(a, b) {
+          return a.left < b.left + b.width && b.left < a.left + a.width &&
+                 a.top < b.top + b.height && b.top < a.top + a.height;
+        }
+        function count(boxes, out) {
+          let n = 0;
+          for (let i = 0; i < boxes.length; i++) {
+            for (let j = i + 1; j < boxes.length; j++) {
+              if (collide(boxes[i], boxes[j])) {
+                n++;
+                if (out.length < 5) out.push(`${boxes[i].label} x ${boxes[j].label}`);
+              }
+            }
+          }
+          return n;
+        }
+
+        let total = 0, drawnCollisions = 0, anchorCollisions = 0;
+        const examples = [];
+        for (const [, w] of vb.documents()) {
+          const drawn = [];
+          const anchored = [];
+          for (const hint of vb.hintsIn(w)) {
+            const rect = hint.getBoundingClientRect();
+            const [ax, ay] = hint.dataset.vimbirdAnchor.split(",").map(Number);
+            const size = { width: rect.width, height: rect.height, label: hint.dataset.vimbirdLabel };
+            drawn.push({ ...size, left: rect.left, top: rect.top });
+            anchored.push({ ...size, left: ax, top: ay });
+          }
+          total += drawn.length;
+          drawnCollisions += count(drawn, examples);
+          anchorCollisions += count(anchored, []);
+        }
+        return { total, drawnCollisions, anchorCollisions, examples };
+        """
+    )
+    mn.press(mn.ESCAPE)
+    check(result["total"] > 20, f"expected a dense screen, got {result['total']} hints")
+    check(
+        result["drawnCollisions"] == 0,
+        f"{result['drawnCollisions']} overlapping labels, e.g. {result['examples']}",
+    )
+    return (
+        f"{result['total']} labels on {opened['subject']!r}: "
+        f"{result['anchorCollisions']} would overlap on raw anchors, "
+        f"{result['drawnCollisions']} do after spreading"
+    )
 
 
 def scenario_activate_button(mn):
@@ -477,6 +582,7 @@ def scenario_key_does_not_leak(mn):
 SCENARIOS = [
     ("hints appear in toolbar and 3-pane", scenario_hints_appear),
     ("labels unique and prefix-free", scenario_labels_unique),
+    ("hint labels do not overlap", scenario_hints_do_not_overlap),
     ("hint activates a toolbar button", scenario_activate_button),
     ("Escape cancels hint mode", scenario_escape_cancels),
     ("multi-character hint selects a folder", scenario_multi_character_hint),

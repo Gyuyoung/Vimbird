@@ -70,7 +70,7 @@
 │ core/ — Thunderbird·DOM 비의존 순수 로직 (단위 테스트 대상)              │
 │   hint-labels.js   라벨 생성 알고리즘                                   │
 │   hint-matcher.js  입력 → 후보 필터 상태머신                             │
-│   mode-machine.js  normal / hint 모드 전이 (Phase 5 확장 지점)          │
+│   placement.js     겹치는 라벨 밀어내기                                  │
 │   ranking.js       후보 정렬(화면 좌표 기준) 및 라벨 배분                 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -127,9 +127,9 @@ ExtensionSupport.registerWindowListener("vimbird", {
 ### 3.3 문서별 에이전트 주입
 
 ```js
-Services.scriptloader.loadSubScript(
-  extension.rootURI.resolve("src/agent/agent-bundle.js"),
-  targetWindow   // 이 window 전역에 window.__vimbirdAgent 를 만든다
+Services.scriptloader.loadSubScriptWithOptions(
+  extension.rootURI.resolve("src/agent/agent.js"),  // core/dom/tb 모듈을 순서대로
+  { target: targetWindow, allowUnsafeURL: true }    // 이 window 전역에 Vimbird 네임스페이스 생성
 );
 ```
 
@@ -145,7 +145,7 @@ C3(동기 접근 가능) 덕분에 부모 ↔ 에이전트 통신은 **메시지
 
 ## 4. 이벤트/키 처리 설계
 
-### 4.1 모드 상태머신 (`core/mode-machine.js`)
+### 4.1 모드 상태머신 (`VimbirdWindow.decide()`)
 
 ```
         ┌──────────┐   f (편집중 아님)      ┌──────────┐
@@ -277,6 +277,7 @@ export function generateLabels(count, chars = "asdfghjkl") {
 - 컨테이너: `doc.documentElement`에 append하는 `<div id="vimbird-hint-layer">`. **실측 확인**: `messenger.xhtml`과 `about:3pane` 양쪽에서 레이어가 정상 렌더되고(`visibility: visible`), 지정한 좌표에 정확히 배치되며, `pointer-events: none` 덕분에 대상 중심의 `elementFromPoint()`가 여전히 대상 요소를 반환합니다.
 - **네임스페이스**: 두 문서 모두 `document.createElement("div")`가 XHTML 네임스페이스를 반환하는 것을 실측했습니다(루트가 `<html>`이므로). 그럼에도 `createElementNS(XHTML_NS, ...)`를 **명시적으로** 사용합니다 — `messenger.xhtml`의 `<html:body xmlns="…there.is.only.xul">`(`messenger.xhtml:302`)처럼 XUL 기본 네임스페이스가 섞여 있어, 컨테이너를 다른 위치에 붙이거나 XUL 문서가 대상이 될 때 조용히 XUL 요소가 만들어지는 사고를 막기 위함입니다.
 - 위치: `position: fixed; left: rect.left px; top: rect.top px;` — 각 문서 자신의 좌표계라 변환 불필요.
+- **겹침 해소** (`core/placement.js`): 요소 모서리에 그대로 두면 인라인 링크나 좁은 툴바 버튼처럼 **가까이 붙은 요소들의 라벨이 서로를 가립니다**. 그래서 라벨을 먼저 앵커 위치에 그린 뒤 실제 크기를 한 번 측정하고, 충돌하는 라벨만 가장 가까운 빈 자리로 옮깁니다(위 → 아래 → 좌우 순서, 최대 3칸). 대상 요소와의 연관을 잃지 않도록 이동 범위를 제한하며, 자리를 못 찾으면 원래 위치를 유지합니다. 배치 계산은 DOM과 무관한 순수 함수라 단위 테스트 대상입니다. 실측: 수신자 14명 메일 헤더에서 앵커 기준 9쌍이 겹치던 것이 0쌍이 됩니다.
 - 스타일: 인라인 `<style>` 1개를 주입하고 모든 규칙을 `#vimbird-hint-layer` 하위로 스코프. 테마 상속을 피하기 위해 색/폰트/그림자 명시.
 - 입력된 문자와 남은 문자를 다른 색 `<span>`으로 표시(Vimium 방식) → 다중 문자 힌트 진행 상황이 보임(테스트 14).
 - `z-index`는 최대치. 단 네이티브 `menupopup`(OS 위젯 레이어)은 덮지 못함 → MVP 범위 밖으로 명시.
@@ -388,6 +389,7 @@ Vimbird/
 │   │   ├── hint-labels.js
 │   │   ├── hint-matcher.js
 │   │   ├── ranking.js
+│   │   ├── placement.js
 │   │   └── editable.js
 │   ├── dom/                      # DOM 의존, TB 비의존
 │   │   ├── visibility.js

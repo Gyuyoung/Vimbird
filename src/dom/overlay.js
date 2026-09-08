@@ -70,14 +70,48 @@ Vimbird.overlay = (() => {
       rest.textContent = item.label;
       hint.append(typed, rest);
 
-      const { left, top } = clamp(item.rect, win);
-      hint.style.left = `${left}px`;
-      hint.style.top = `${top}px`;
+      const anchorLeft = Math.round(item.rect.left);
+      const anchorTop = Math.round(item.rect.top);
+      hint.dataset.vimbirdAnchor = `${anchorLeft},${anchorTop}`;
+      hint.style.left = `${anchorLeft}px`;
+      hint.style.top = `${anchorTop}px`;
       layer.appendChild(hint);
     }
 
     doc.documentElement.appendChild(layer);
+    spreadOverlapping(win, layer);
     return items.length;
+  }
+
+  /**
+   * Labels are first drawn on their element's corner, which collides whenever
+   * elements sit close together (a row of inline links, narrow toolbar
+   * buttons). Measure the drawn labels once, then move the colliding ones to
+   * the nearest free spot.
+   */
+  function spreadOverlapping(win, layer) {
+    const hints = [...layer.querySelectorAll(".vimbird-hint")];
+    if (hints.length < 2) {
+      return;
+    }
+
+    const labels = hints.map(hint => {
+      const rect = hint.getBoundingClientRect();
+      return {
+        left: Number.parseFloat(hint.style.left),
+        top: Number.parseFloat(hint.style.top),
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+
+    const viewport = { width: win.innerWidth, height: win.innerHeight };
+    const positions = Vimbird.placement.layoutLabels(labels, viewport);
+
+    hints.forEach((hint, index) => {
+      hint.style.left = `${positions[index].left}px`;
+      hint.style.top = `${positions[index].top}px`;
+    });
   }
 
   /** Reflect typed input: grey out what was typed, hide labels that no longer match. */
@@ -99,15 +133,6 @@ Vimbird.overlay = (() => {
 
   function hide(win) {
     win.document.getElementById(LAYER_ID)?.remove();
-  }
-
-  /** Keep the label inside the viewport even for elements at the edges. */
-  function clamp(rect, win) {
-    const width = 26;
-    const height = 16;
-    const left = Math.min(Math.max(rect.left, 0), Math.max(win.innerWidth - width, 0));
-    const top = Math.min(Math.max(rect.top, 0), Math.max(win.innerHeight - height, 0));
-    return { left: Math.round(left), top: Math.round(top) };
   }
 
   return { show, update, hide, LAYER_ID, XHTML };
