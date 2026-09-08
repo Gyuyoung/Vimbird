@@ -1,0 +1,15 @@
+{
+  "name": "vimbird",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vimium-style keyboard hints for the Thunderbird UI",
+  "license": "MPL-2.0",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "test:e2e": "python3 test/e2e/run_e2e.py",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

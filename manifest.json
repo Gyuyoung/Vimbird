@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Vimbird",
+  "version": "0.1.0",
+  "description": "Vimium-style keyboard hints for the Thunderbird UI: press f, type the hint, the element is clicked.",
+  "author": "gyuyoung",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vimbird@gyuyoung",
+      "strict_min_version": "128.0"
+    }
+  },
+  "background": {
+    "scripts": ["src/background/background.js"]
+  },
+  "permissions": ["storage"],
+  "experiment_apis": {
+    "vimbird": {
+      "schema": "experiments/vimbird/schema.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "paths": [["vimbird"]],
+        "script": "experiments/vimbird/implementation.js",
+        "events": ["startup"]
+      }
+    }
+  }
+}
