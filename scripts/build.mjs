@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 /**
  * Package Vimbird as an installable .xpi (a plain zip with manifest.json at the
  * root). Written against Node's standard library so the project stays free of
@@ -11,7 +14,9 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const INCLUDE = ["manifest.json", "src", "experiments"];
+// LICENSE ships inside the .xpi so the MPL notice in each file holds true for
+// whoever installs it, not just for whoever clones the repository.
+const INCLUDE = ["manifest.json", "LICENSE", "src", "experiments"];
 const OUTPUT_DIR = join(ROOT, "dist");
 
 function collect(entry) {

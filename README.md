@@ -117,3 +117,9 @@ Thunderbird changes its interface between releases, so reports that name the ver
 - Verified on **Thunderbird 155.0** (Linux, snap package).
 - `strict_min_version` is 128.0, the floor where MV3 and the current UI structure hold, but versions 128–154 have not been tested.
 - Thunderbird has discussed restricting Experiment-based add-ons on the monthly release channel and postponed it by a year; ESR is not affected. Vimbird works on 155 today, and temporary installs stay exempt even if the restriction lands. Details in [`docs/research.md`](docs/research.md) §4.2.
+
+---
+
+## 6. License
+
+[Mozilla Public License 2.0](LICENSE), the same licence Thunderbird itself uses.
