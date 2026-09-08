@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vimbird",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Vimium-style keyboard hints for the Thunderbird UI: press f, type the hint, the element is clicked.",
   "author": "gyuyoung",
   "browser_specific_settings": {
