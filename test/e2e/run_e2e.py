@@ -344,7 +344,8 @@ def scenario_escape_cancels(mn):
 
 
 def scenario_multi_character_hint(mn):
-    """7, 14: a two-character hint selects a folder row."""
+    """7, 14: a folder row hint switches folders, and the first keystroke of a
+    two-character label narrows the session instead of activating anything."""
     mn.script(PRELUDE + 'vb.folderRow("VimbirdA").click(); return true;')
     time.sleep(1.5)
     mn.script(PRELUDE + "return vb.focusFolderTree();")
@@ -358,12 +359,37 @@ def scenario_multi_character_hint(mn):
         """
     )
     check(target and target["label"], "no hint on the VimbirdB folder row")
-    check(len(target["label"]) > 1, f"expected a multi-character hint, got {target['label']!r}")
+
+    # A label is only as long as it needs to be, so the folder row may well hold
+    # a single character. Check the multi-character path on whichever label
+    # actually has two: its first keystroke must narrow the session, not fire.
+    labels = [hint["label"] for hint in mn.script(PRELUDE + "return vb.allHints();")]
+    multi = sorted(label for label in labels if len(label) > 1)
+    check(multi, f"no multi-character label among {len(labels)} hints")
+    prefix = multi[0][0]
+    check(prefix not in labels, f"{prefix!r} is both a whole label and a prefix")
+    mn.press(prefix)
+    time.sleep(1.0)
+    check(mn.script(PRELUDE + "return vb.count();") > 0,
+          f"typing {prefix!r} ended hint mode instead of narrowing it")
+    mn.press(mn.ESCAPE)
+    time.sleep(0.8)
+
+    mn.press("f")
+    time.sleep(1.2)
+    target = mn.script(
+        PRELUDE
+        + """
+        const a3p = vb.tabmail().currentAbout3Pane;
+        return vb.labelOn(a3p, vb.folderRow("VimbirdB"));
+        """
+    )
+    check(target and target["label"], "no hint on the VimbirdB folder row after restarting hint mode")
     mn.press(target["label"])
     time.sleep(2)
     folder = mn.script(PRELUDE + "const a3p = vb.tabmail().currentAbout3Pane; return a3p.gFolder && a3p.gFolder.name;")
     check(folder == "VimbirdB", f"folder is {folder!r}, expected 'VimbirdB'")
-    return f"hint {target['label']!r} switched folders"
+    return f"hint {target['label']!r} switched folders, {prefix!r} narrowed {len(multi)} longer labels"
 
 
 def scenario_message_pane_hints(mn):
@@ -588,7 +614,7 @@ SCENARIOS = [
     ("hint labels do not overlap", scenario_hints_do_not_overlap),
     ("hint activates a toolbar button", scenario_activate_button),
     ("Escape cancels hint mode", scenario_escape_cancels),
-    ("multi-character hint selects a folder", scenario_multi_character_hint),
+    ("folder hint switches folders, partial input narrows", scenario_multi_character_hint),
     ("message header is hinted", scenario_message_pane_hints),
     ("thread row hint selects a message", scenario_thread_row_activation),
     ("text input keeps its keystrokes", scenario_text_input_is_left_alone),

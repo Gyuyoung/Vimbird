@@ -66,7 +66,7 @@ Vimbird is not on [addons.thunderbird.net](https://addons.thunderbird.net). Thun
 | Key | Action |
 |---|---|
 | `f` | Show hints for everything clickable and visible |
-| `a s d f g h j k l` | Type a hint label; the element is clicked as soon as the label is complete |
+| `asdfghjkl` `qwertyuiop` | Type a hint label; the element is clicked as soon as the label is complete |
 | `Backspace` | Undo the last typed character |
 | `Esc` | Cancel hint mode |
 | Any other key | Cancels hint mode (so a mistyped hint cannot trigger a command) |
@@ -75,6 +75,7 @@ Vimbird is not on [addons.thunderbird.net](https://addons.thunderbird.net). Thun
 ### How it behaves
 
 - **Hints are global.** Labels are unique across the whole window, including the toolbar, the 3-pane and the open message, and they are assigned top-to-bottom, left-to-right, so items near the top get the shortest labels.
+- **One or two keystrokes, never three.** The hint alphabet is the home row plus the row above it, which covers 361 elements in two characters; a maximised window with a dozen folders and a full message list measures around eighty hints. The single-character labels go to the elements nearest the top of the window, and the letters are handed out in order of comfort, so `q` and `p` only turn up when the screen is busy.
 - **Labels are prefix-free.** No label is a prefix of another, so a completed label is never ambiguous: typing `s` when both `sa` and `sd` exist just narrows the choices; the typed part dims and the rest stays highlighted.
 - **Only what you can see gets a hint.** Off-screen, hidden, disabled and covered elements are skipped. The message list is virtualised, so only the rows currently rendered are candidates.
 - **Typing is never stolen.** With focus in a text field — subject line, message body, search box — `f` types an `f` and no hints appear.

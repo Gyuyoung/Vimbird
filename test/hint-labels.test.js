@@ -43,6 +43,36 @@ test("label lengths differ by at most one", () => {
   }
 });
 
+test("two keystrokes cover a whole window's worth of hints", () => {
+  // A maximised 3-pane window with a dozen folders and a full message list
+  // measures around 80-100 hints, so three-character labels must stay well out
+  // of reach. The alphabet allows n^2 two-character labels.
+  const capacity = DEFAULT_CHARS.length ** 2;
+  assert.ok(capacity >= 300, `alphabet covers only ${capacity} elements in two keystrokes`);
+  for (const count of [100, 200, capacity]) {
+    const longest = Math.max(...generateLabels(count).map(label => label.length));
+    assert.equal(longest, 2, `count=${count}`);
+  }
+  assert.ok(generateLabels(capacity + 1).some(label => label.length === 3));
+});
+
+test("the shortest labels come first, so top elements cost fewest keystrokes", () => {
+  for (const count of [10, 20, 100, 400]) {
+    const lengths = generateLabels(count).map(label => label.length);
+    const sorted = [...lengths].sort((a, b) => a - b);
+    assert.deepEqual(lengths, sorted, `count=${count}`);
+  }
+});
+
+test("labels follow the alphabet's order of preference, not the ASCII order", () => {
+  // "q" sits after the home row in the alphabet, so it must not be handed out
+  // before "s" just because it sorts earlier as text.
+  const result = generateLabels(30);
+  assert.equal(result[0], "s");
+  assert.ok(result.indexOf("l") < result.indexOf("q"));
+  assert.deepEqual(generateLabels(2, "zy"), ["z", "y"]);
+});
+
 test("uses single characters while the alphabet lasts", () => {
   const alphabetSize = DEFAULT_CHARS.length;
   assert.ok(generateLabels(alphabetSize).every(label => label.length === 1));

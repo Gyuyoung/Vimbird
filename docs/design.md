@@ -251,7 +251,7 @@ DOM API 접근은 어댑터 객체(`{ rect, style, elementFromPoint }`)로 주�
 Vimium과 동일한 균형 트리 방식:
 
 ```js
-export function generateLabels(count, chars = "asdfghjkl") {
+export function generateLabels(count, chars = "asdfghjklqwertyuiop") {
   const hints = [""]; let offset = 0;
   while (hints.length - offset < count || hints.length === 1) {
     const base = hints[offset++];
@@ -259,7 +259,7 @@ export function generateLabels(count, chars = "asdfghjkl") {
   }
   return hints.slice(offset, offset + count)
               .map(s => [...s].reverse().join(""))
-              .sort();
+              .sort(byLengthThenAlphabetOrder);   // 알파벳 순서 = 선호 순서
 }
 ```
 
@@ -268,7 +268,8 @@ export function generateLabels(count, chars = "asdfghjkl") {
 - 라벨 개수 = 후보 개수, 전부 유일
 - **prefix-free**: 어떤 라벨도 다른 라벨의 접두사가 아님 → "정확히 일치하면 즉시 클릭"이 모호성 없이 성립 (테스트 15)
 - 길이 차이가 최대 1 (균형)
-- 기본 문자셋은 홈로우 `asdfghjkl` (설정 가능). 9개까지는 1글자, 90개까지는 2글자.
+- **정렬 기준은 길이 우선, 그다음 알파벳 자체의 순서**입니다. 텍스트 정렬을 쓰면 2글자 `aa`가 1글자 `d`보다 앞서서, 화면 맨 위 요소가 오히려 두 번 타이핑해야 하는 라벨을 받게 됩니다.
+- 문자셋 크기가 라벨 길이를 결정합니다. n글자면 2타로 n²개를 덮습니다. **실측**: 1952×1092 창, 폴더 12개, 메일 60통에서 힌트 80개가 나왔으므로 홈로우 9글자(81개)로는 부족했습니다. 홈로우 + 윗줄 19글자(361개)면 어떤 창에서도 3글자가 나오지 않습니다. 문자열 순서가 곧 선호 순서라, 무리한 손가락 이동이 필요한 `q`·`p`는 힌트가 많을 때만 등장합니다.
 
 **라벨 배분**은 `core/ranking.js`가 결정합니다: 후보를 화면 좌표(문서별 `mozInnerScreenX/Y` 오프셋 적용) 기준 위→아래, 왼→오른쪽으로 정렬한 뒤 순서대로 라벨을 부여합니다. 즉 **여러 문서에 걸쳐 라벨이 전역 유일**하며(C4), 시각적으로 위쪽 요소가 짧은 라벨을 받습니다.
 

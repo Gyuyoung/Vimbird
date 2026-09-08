@@ -15,7 +15,9 @@ var { ExtensionSupport } = ChromeUtils.importESModule("resource:///modules/Exten
 // eslint-disable-next-line no-var
 var VimbirdConst = {
   HINT_KEY: "f",
-  ALPHABET: "asdfghjkl",
+  // The hint alphabet lives in src/core/hint-labels.js (DEFAULT_CHARS); keeping
+  // a second copy here would let the keys we accept drift from the labels we
+  // draw.
   LISTENER_ID: "vimbird",
   // Two registrations: the default group stops the app's own handlers, the
   // system group is a separate dispatch group that stopPropagation cannot
@@ -136,7 +138,7 @@ var VimbirdWindow = class {
       this.applyInput(this.session.input.slice(0, -1));
       return true;
     }
-    if (this.core.matcher.isHintKey(event, VimbirdConst.ALPHABET)) {
+    if (this.core.matcher.isHintKey(event, this.core.labels.DEFAULT_CHARS)) {
       this.applyInput(this.session.input + event.key.toLowerCase());
       return true;
     }
@@ -181,7 +183,7 @@ var VimbirdWindow = class {
     }
 
     const ordered = this.core.ranking.sortByScreenPosition(entries);
-    const labels = this.core.labels.generateLabels(ordered.length, VimbirdConst.ALPHABET);
+    const labels = this.core.labels.generateLabels(ordered.length);
 
     const perAgent = new Map();
     ordered.forEach((item, index) => {
