@@ -138,6 +138,7 @@ It was also confirmed that `elementFromPoint()` at an element's centre still ret
 | `events: ["startup"]` | `SchemaAPIManager.onStartup()` calls `api.onStartup()`, independent of the background page's lifetime |
 | **Script loading** | `Services.scriptloader.loadSubScript` **refuses** extension resource URLs ("Trying to load untrusted URI"). `loadSubScriptWithOptions(url, { target, allowUnsafeURL: true })` is the answer — it is how the framework itself loads experiment scripts (`ExtensionCommon.sys.mjs:1702`) |
 | Install paths | Confirmed working from **both** a source directory (`file://`) and a packaged XPI (`jar:file://`) |
+| **Permanent install of an unsigned XPI** | Works on 155.0 **release**: `xpinstall.signatures.required` is `false`, and installing `dist/vimbird-0.1.3.xpi` non-temporarily leaves `signedState: 0, appDisabled: false, isActive: true, temporarilyInstalled: false` in a profile-scoped install. This is why [`README.md`](../README.md) leads with the XPI rather than the temporary install — Thunderbird declined to require signing ([Bugzilla 1549562](https://bugzilla.mozilla.org/show_bug.cgi?id=1549562), WONTFIX), so a user only has to confirm the permission prompt |
 
 ---
 
