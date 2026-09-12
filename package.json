@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
     "test:e2e": "python3 test/e2e/run_e2e.py",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "record:demo": "python3 scripts/record-demo.py"
   },
   "engines": {
     "node": ">=20"

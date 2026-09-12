@@ -4,15 +4,15 @@ Vimium-style keyboard hints for Thunderbird.
 
 Press `f`, and every clickable thing on screen gets a short letter label. Type the label and that element is clicked — no mouse, no tabbing through the UI. Press `Esc` to cancel.
 
-![Thunderbird with Vimbird hint mode active: yellow labels sit on the toolbar buttons, folder rows, message rows and message header buttons](docs/images/hint-mode.png)
+![Hint mode in Thunderbird: pressing f puts a yellow label on every clickable element, typing a label jumps to that folder, pressing f again and typing another opens a message](docs/images/hint-mode.gif)
 
-*After pressing `f`: typing `sw` opens Priya's message, `o` archives the one on screen, `w` starts a new message.*
+*Recorded against Thunderbird 155. `f` labels the toolbar, the folder tree, the message list and the message header at once; typing `sd` switches to the Team folder, and `f` then `r` opens a message. The keys are shown at the bottom; nothing else was touched.*
 
 ---
 
 ## 1. Introduction
 
-Vimbird brings Vimium's hint mode to Thunderbird's own interface — not to web pages inside it. As the screenshot above shows, labels land on the unified toolbar, the spaces and tab bars, the menu bar, folder rows, message list rows and the buttons in a message's header. The compose window gets hints of its own.
+Vimbird brings Vimium's hint mode to Thunderbird's own interface — not to web pages inside it. As the recording above shows, labels land on the unified toolbar, the spaces and tab bars, the menu bar, folder rows, message list rows and the buttons in a message's header. The compose window gets hints of its own.
 
 Element IDs are never hardcoded. Candidates are found by tag name, ARIA role and the `is=` attribute of Thunderbird's custom elements, so the engine keeps working when Thunderbird rearranges its widgets. All Thunderbird-specific knowledge lives in one file, [`src/tb/targets.js`](src/tb/targets.js).
 
