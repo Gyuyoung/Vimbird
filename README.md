@@ -10,7 +10,7 @@ Press `f`, and every clickable thing on screen gets a short letter label. Type t
 
 ## Install
 
-1. Download `vimbird-<version>.xpi` from the [latest release](../../releases/latest). In a Firefox-based browser, right-click the link and choose **Save Link As…**.
+1. Download `vimbird-<version>.xpi` from the [latest release](../../releases/latest). In your browser, right-click the link and choose **Save Link As…**.
 2. Open **Add-ons and Themes** — the **☰** button at the top right, or **Tools → Add-ons and Themes** on macOS.
 3. **Gear icon → Install Add-on From File…**, pick the file, and confirm.
 
