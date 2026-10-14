@@ -76,6 +76,20 @@ Calling `preventDefault() + stopPropagation()` from the chrome window's capture 
 
 So the default group is blocked completely, but **the system group is a separate dispatch group that `stopPropagation` cannot reach.** Vimbird therefore attaches **two** listeners to the chrome window (default group and system group, both capturing) and caches the decision in a `WeakMap` so the same event is not handled twice.
 
+### 3.2 Which element was the key typed into?
+
+A bug found in real use: with the cursor in a search field, `f` started hint mode instead of typing an `f`. Thunderbird's search bars — `<global-search-bar>` in the unified toolbar, `<search-bar id="qfb-qs-textbox">` in the quick filter of `about:3pane`, and the address book's — keep their `<input>` in an open shadow root (`search-bar.mjs`, `attachShadow`). The "no shadow DOM" finding in research §5.2 was about the toolbar buttons and does not cover them.
+
+With that `<input>` focused and a real `f` keystroke, a capture listener on the chrome window's `windowRoot` saw:
+
+| Property | Global search bar (`messenger.xhtml`) | Quick filter (`about:3pane`) |
+|---|---|---|
+| `event.target` | `<global-search-bar>` | `<search-bar id="qfb-qs-textbox">` |
+| `event.composedPath()[0]` | `<input>` | `<browser id="mail3PaneTabBrowser1">` |
+| `event.originalTarget` | `<input>` | `<input>` |
+
+**Conclusion**: `target` is retargeted to the shadow host, and the standard `composedPath()` stops at the `<browser>` of an inner document, so a guard on either one misses the quick filter. Gecko's chrome-only `originalTarget` is the `<input>` in both cases, so the editing guard looks at that (`editable.isEditableKeyEvent`).
+
 ---
 
 ## 4. Activation strategies compared
@@ -172,26 +186,29 @@ Both are fixed by clipping a candidate's box at the first candidate nested insid
 
 ---
 
-## 8. E2E results (14/14)
+## 8. E2E results (15/15)
 
-[`test/e2e/run_e2e.py`](../test/e2e/run_e2e.py) run against a real Thunderbird 155. The source-directory install and the packaged-XPI install pass identically.
+[`test/e2e/run_e2e.py`](../test/e2e/run_e2e.py) run against a real Thunderbird 155. The source-directory install and the packaged XPI (`dist/vimbird-0.1.4.xpi`) pass identically.
 
 ```
 PASS  hints appear in toolbar and 3-pane — 20 hints across ['about:3pane', 'messenger.xhtml']
 PASS  labels unique and prefix-free — 20 labels, 5 multi-character, all prefix-free
-PASS  hint labels do not overlap — 70 labels on '[recipients] crowded header': 9 would overlap on raw anchors, 0 do after spreading
+PASS  hint labels do not overlap — 68 labels on '[recipients] crowded header': 8 would overlap on raw anchors, 0 do after spreading
 PASS  hints sit on the middle of their row — 5 rows checked, worst offset 0px on rows 28px tall
 PASS  hint activates a toolbar button — hint 'w' opened the compose window
-PASS  Escape cancels hint mode — 70 hints dismissed
-PASS  folder hint switches folders, partial input narrows — hint 'su' switched folders, 'a' narrowed 54 longer labels
-PASS  message header is hinted — 47 hints, message header button hinted as 'as'
+PASS  Escape cancels hint mode — 68 hints dismissed
+PASS  folder hint switches folders, partial input narrows — hint 'se' switched folders, 'a' narrowed 52 longer labels
+PASS  message header is hinted — 46 hints, message header button hinted as 'as'
 PASS  thread row hint selects a message — row hint 'ay' opened '[1] Vimbird test message' in the message pane
 PASS  text input keeps its keystrokes — f left untouched for the subject field
-PASS  compose window is hinted — 25 hints in the compose window
-PASS  scroll dismisses hints — 47 hints dismissed on scroll
-PASS  resize dismisses hints — 47 hints dismissed on resize (synthetic)
+PASS  search bars keep their keystrokes — f typed into the global search bar and the quick filter
+PASS  compose window is hinted — 26 hints in the compose window
+PASS  scroll dismisses hints — 34 hints dismissed on scroll
+PASS  resize dismisses hints — 34 hints dismissed on resize (synthetic)
 PASS  f does not leak into Thunderbird — f consumed before Thunderbird's own handlers
 ```
+
+With the guard put back on `event.target`, the search-bar scenario fails with `hint mode started from the global search bar (36 hints)`.
 
 ### 8.1 Limits of the headless environment
 
@@ -209,7 +226,7 @@ The two compose-window items and the resize therefore need one more pass through
 ```bash
 npm test                     # pure-logic unit tests (no Thunderbird needed)
 npm run build                # writes dist/vimbird-<version>.xpi
-npm run test:e2e             # launches headless Thunderbird and runs the 14 scenarios
+npm run test:e2e             # launches headless Thunderbird and runs the 15 scenarios
 python3 test/e2e/run_e2e.py --xpi          # the same run against the packaged XPI
 python3 test/e2e/run_e2e.py --keep         # leaves Thunderbird up for inspection
 ```

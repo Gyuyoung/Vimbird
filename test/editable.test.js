@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { editable } = require("../src/core/editable.js");
-const { isEditable, isInEditableContext } = editable;
+const { isEditable, isInEditableContext, isEditableKeyEvent } = editable;
 
 function element(localName, attributes = {}, extra = {}) {
   return {
@@ -63,4 +63,23 @@ test("the ancestor walk is bounded", () => {
     node = element("div", {}, { parentNode: node });
   }
   assert.ok(!isInEditableContext(node), "a far-away ancestor must not block hint mode");
+});
+
+test("a key typed into a search bar's shadow input counts as editing", () => {
+  // Outside the shadow root the event is retargeted to the <search-bar> host.
+  const host = element("search-bar", { id: "qfb-qs-textbox" });
+  const input = element("input", {});
+  assert.ok(!isEditable(host));
+  assert.ok(isEditableKeyEvent({ target: host, originalTarget: input }));
+});
+
+test("a key on a shadow button does not count as editing", () => {
+  const host = element("search-bar");
+  const button = element("button");
+  assert.ok(!isEditableKeyEvent({ target: host, originalTarget: button }));
+});
+
+test("without originalTarget the event target decides", () => {
+  assert.ok(isEditableKeyEvent({ target: element("textarea") }));
+  assert.ok(!isEditableKeyEvent({ target: element("button") }));
 });

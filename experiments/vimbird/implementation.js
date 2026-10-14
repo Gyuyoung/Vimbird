@@ -116,7 +116,7 @@ var VimbirdWindow = class {
       if (event.key !== VimbirdConst.HINT_KEY) {
         return false;
       }
-      if (this.core.editable.isInEditableContext(event.target)) {
+      if (this.core.editable.isEditableKeyEvent(event)) {
         return false;
       }
       return this.startSession();

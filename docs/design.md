@@ -23,7 +23,7 @@ Premise: the findings in [`docs/research.md`](research.md), measured against a T
 | C3 | `about:3pane` / `about:message` are not remote → synchronous access from the parent process | **No** JSWindowActor, frame script or IPC. Direct function calls |
 | C4 | The target UI is spread over several documents (chrome window / about:3pane / about:message / compose) | A per-document engine with a per-window coordinator. Hint labels are **globally unique** |
 | C5 | The thread list is virtualised | Only rendered rows are candidates. Scrolling or resizing invalidates the hints |
-| C6 | No shadow DOM; mostly standard HTML with some XUL elements | `querySelectorAll` applies. XUL's `hidden`/`collapsed` attributes need separate handling |
+| C6 | No shadow DOM on the clickable targets; mostly standard HTML with some XUL elements. The search bars do keep their `<input>` in a shadow root | `querySelectorAll` applies. XUL's `hidden`/`collapsed` attributes need separate handling. The editing guard must look past shadow retargeting (§4.3) |
 | C7 | An Experiment suppression switch exists in the code (currently off, temporary installs exempt) | Minimise the Experiment surface and keep the pure logic separate |
 | C8 | Whether key events cross document boundaries was unverified | Make the key-listening strategy **replaceable** (decided in Spike 0) |
 
@@ -185,6 +185,8 @@ target.closest?.("input, textarea, select, [contenteditable=''], [contenteditabl
 ```
 
 Thunderbird's own handlers do not guard this way (research §6.3), so we have to. The decision lives in `core` and takes the element-query functions by injection, which makes it testable.
+
+The element tested is the event's `originalTarget`, not its `target`. The search bars hold their `<input>` in a shadow root, so a listener on the chrome window sees `target` retargeted to the `<search-bar>` host, and `composedPath()` stops at the `<browser>` of an inner document; only Gecko's chrome-only `originalTarget` is the `<input>` itself ([`verification.md`](verification.md) §3.2).
 
 ---
 
@@ -491,7 +493,7 @@ The reasoning:
 | `hint-labels` | Count, uniqueness, **prefix-freedom**, length balance, shortest-first ordering, a custom alphabet, and the boundaries at 0/1/19/20/361/362 |
 | `hint-matcher` | Single and multi-character matching, a shared prefix (test 15), Backspace, Esc, ending on no match |
 | `ranking` | Stability of the screen-position sort, composing offsets across documents, ties |
-| `editable` | Input elements, `contenteditable`, the XUL search bar (test 11) |
+| `editable` | Input elements, `contenteditable`, the XUL search bar, a key retargeted from a search bar's shadow `<input>` (test 11) |
 | `visibility` | Fake adapters for a zero rect, outside the viewport, `display:none`, XUL `hidden`/`collapsed`, occlusion, nested removal |
 | `candidates` | Clipping a row that wraps a subtree to its own strip, and leaving every other box alone |
 | `placement` | The resting place (left edge, centred on the height), separating labels that collide, staying inside the viewport |
@@ -500,7 +502,7 @@ The reasoning:
 
 Thunderbird's built-in **Marionette** is used to connect to the chrome process, send real key events and inspect the real DOM (`test/e2e/`). A throwaway profile is created and launched headless, keeping the user's own profile entirely out of it.
 
-Fourteen scenarios cover: hints appearing across documents, label uniqueness and prefix-freedom, labels not overlapping, labels sitting on the middle of their row, activating a toolbar button, `Esc` cancelling, switching folders by hint with a partial input that only narrows, message header hints, activating a thread row, protecting text input, compose window hints, dismissal on scroll and resize, and keys not leaking.
+Fifteen scenarios cover: hints appearing across documents, label uniqueness and prefix-freedom, labels not overlapping, labels sitting on the middle of their row, activating a toolbar button, `Esc` cancelling, switching folders by hint with a partial input that only narrows, message header hints, activating a thread row, protecting text input, typing into the search bars, compose window hints, dismissal on scroll and resize, and keys not leaking.
 
 **Limits**: headless has no window manager, so OS focus cannot leave the 3-pane window. The two compose-window scenarios only exercise the code path, through a synthetic `keydown`, and need manual confirmation (`docs/testing.md`).
 

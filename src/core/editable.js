@@ -68,11 +68,26 @@ Vimbird.editable = (() => {
     return false;
   }
 
+  /**
+   * Whether a key event was typed into an editing context. Thunderbird's
+   * search bars keep their <input> in a shadow root, so a listener on the
+   * chrome window sees `target` retargeted to the <search-bar> host, and
+   * `composedPath()` stops at the <browser> of an inner document. Gecko's
+   * chrome-only `originalTarget` is the <input> in both cases (measured on
+   * Thunderbird 155, see docs/verification.md).
+   *
+   * @param {any} event
+   * @returns {boolean}
+   */
+  function isEditableKeyEvent(event) {
+    return isInEditableContext(event.originalTarget || event.target);
+  }
+
   function attr(element, name) {
     return typeof element.getAttribute === "function" ? element.getAttribute(name) : null;
   }
 
-  return { isEditable, isInEditableContext };
+  return { isEditable, isInEditableContext, isEditableKeyEvent };
 })();
 
 if (typeof module === "object" && module.exports) {

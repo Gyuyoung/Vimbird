@@ -34,7 +34,7 @@ How it works: the runner creates a throwaway profile, launches Thunderbird headl
 
 Requirements: `python3`, plus `xvfb-run` when there is no display. An already-running Thunderbird is no obstacle — the test instance is isolated by its own profile and `-no-remote`.
 
-Fourteen scenarios currently cover most of the manual checklist below. On failure, the log path is printed in the first lines of the run.
+Fifteen scenarios currently cover most of the manual checklist below. On failure, the log path is printed in the first lines of the run.
 
 ---
 
@@ -56,7 +56,7 @@ Setup: load the extension with the temporary-install steps in [`README.md`](../R
 | 8 | With a message selected | Select a message, press `f` | The message header buttons (Reply/Forward/Archive) get hints too | ✓ |
 | 9 | With a message open | Open a message in a tab or window, press `f` | The open message gets hints | Partly |
 | 10 | Compose window | Press `f` in a compose window | The compose toolbar gets hints (**needs OS focus — check this by hand**) | Synthetic events only |
-| 11 | Text input | Put the cursor in the subject, body or search box and press `f` | No hints appear and **an `f` is typed** (**checking by hand is recommended**) | Synthetic events only |
+| 11 | Text input | Put the cursor in the subject, body or search box and press `f` | No hints appear and **an `f` is typed** (**checking the compose window by hand is recommended**) | ✓ for the global search bar and quick filter; synthetic events only in the compose window |
 | 12 | Window resize | Resize the window while hints are shown | The hints disappear rather than sitting at stale positions | ✓ (may fall back to a synthetic event when headless) |
 | 13 | Scrolling | Scroll while hints are shown | The hints disappear | ✓ |
 | 14 | Multi-character hints | Press `f` on a screen with more candidates than the alphabet has letters | Two-character labels appear and need both keystrokes | ✓ |

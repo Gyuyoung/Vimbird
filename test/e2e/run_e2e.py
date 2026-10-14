@@ -561,6 +561,70 @@ def scenario_text_input_is_left_alone(mn):
     return "f left untouched for the subject field"
 
 
+def activate_main_window(mn, timeout=5.0):
+    """Closing the compose window leaves no active window for a moment, and
+    focus() on an element of an inactive window is ignored."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if mn.script(PRELUDE + "vb.win().focus(); return Services.focus.activeWindow === vb.win();"):
+            return
+        time.sleep(0.2)
+    raise Failure("the 3-pane window never became active")
+
+
+def scenario_search_bars_keep_keystrokes(mn):
+    """11: a real f typed into a search bar stays in the search bar.
+
+    Thunderbird's search bars keep their <input> in a shadow root, so the key
+    reaches Vimbird's window listener retargeted to the <search-bar> host. The
+    quick filter sits in about:3pane, behind a document boundary as well.
+    """
+    mn.script(PRELUDE + 'vb.folderRow("VimbirdA").click(); return true;')
+    time.sleep(2)
+    fields = {
+        "global search bar": 'vb.win().document.querySelector("global-search-bar")',
+        "quick filter": 'vb.tabmail().currentAbout3Pane.document.getElementById("qfb-qs-textbox")',
+    }
+    typed = []
+    try:
+        mn.script(PRELUDE + "vb.tabmail().currentAbout3Pane.quickFilterBar._showFilterBar(true); return true;")
+        time.sleep(0.5)
+        activate_main_window(mn)
+        for name, locate in fields.items():
+            focused = mn.script(
+                PRELUDE
+                + f"""
+                const host = {locate};
+                if (!host) return {{ error: "not found" }};
+                const input = host.shadowRoot.querySelector("input");
+                host.reset();
+                vb.win().focus();
+                input.focus();
+                return {{ focused: Services.focus.focusedElement === input }};
+                """
+            )
+            check(focused.get("focused"), f"could not focus the {name}: {focused}")
+            mn.press("f")
+            time.sleep(1.0)
+            result = mn.script(
+                PRELUDE
+                + f"""
+                const host = {locate};
+                const value = host.shadowRoot.querySelector("input").value;
+                const hints = vb.count();
+                host.reset();
+                return {{ value, hints }};
+                """
+            )
+            check(result["hints"] == 0, f"hint mode started from the {name} ({result['hints']} hints)")
+            check(result["value"] == "f", f"the {name} holds {result['value']!r}, expected 'f'")
+            typed.append(name)
+    finally:
+        mn.script(PRELUDE + "vb.tabmail().currentAbout3Pane.quickFilterBar._showFilterBar(false); return true;")
+        time.sleep(0.5)
+    return f"f typed into the {' and the '.join(typed)}"
+
+
 def scenario_compose_window_hints(mn):
     """10: the compose window gets hints of its own."""
     mn.script(PRELUDE + "return vb.closeCompose();")
@@ -680,6 +744,7 @@ SCENARIOS = [
     ("message header is hinted", scenario_message_pane_hints),
     ("thread row hint selects a message", scenario_thread_row_activation),
     ("text input keeps its keystrokes", scenario_text_input_is_left_alone),
+    ("search bars keep their keystrokes", scenario_search_bars_keep_keystrokes),
     ("compose window is hinted", scenario_compose_window_hints),
     ("scroll dismisses hints", scenario_scroll_dismisses),
     ("resize dismisses hints", scenario_resize_dismisses),

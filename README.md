@@ -35,7 +35,7 @@ To work on the code instead: **Tools → Developer Tools → Debug Add-ons → L
 
 ## Status
 
-MVP. Hint mode works, and is covered by 40 unit tests plus 14 end-to-end scenarios against a real Thunderbird 155. Not implemented yet: hints for links inside message bodies, the rest of the Vim key set (`j/k`, `gg/G`, `o`, `r`, `a`, `x`, `d`, `/`), a preferences UI, and hints inside native menu popups.
+MVP. Hint mode works, and is covered by 59 unit tests plus 15 end-to-end scenarios against a real Thunderbird 155. Not implemented yet: hints for links inside message bodies, the rest of the Vim key set (`j/k`, `gg/G`, `o`, `r`, `a`, `x`, `d`, `/`), a preferences UI, and hints inside native menu popups.
 
 Vimbird is not on [addons.thunderbird.net](https://addons.thunderbird.net): Thunderbird has paused reviews of new add-ons that use Experiment APIs until at least the 2027 ESR, so releases here are the way to get it.
 
