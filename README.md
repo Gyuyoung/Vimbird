@@ -16,7 +16,7 @@ Press `f`, and every clickable thing on screen gets a short letter label. Type t
 
 Thunderbird does not require add-ons to be signed, so that one prompt is all there is. It warns about "full access to Thunderbird and your computer" because Vimbird needs an [Experiment API](#why-an-experiment-api); it makes no network requests of its own.
 
-Needs Thunderbird 128 or newer (verified on 155). There are no automatic updates — install a newer XPI the same way.
+Needs Thunderbird 128 to 158 (verified on 155 and 157). Experiment add-ons have to name the newest Thunderbird they support, so a newer Thunderbird disables Vimbird until a release raises that limit. There are no automatic updates — install a newer XPI the same way.
 
 To work on the code instead: **Tools → Developer Tools → Debug Add-ons → Load Temporary Add-on**, and pick `manifest.json`. `npm run build` packs an XPI, `npm test` and `npm run test:e2e` run the tests.
 

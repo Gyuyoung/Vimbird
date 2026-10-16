@@ -439,7 +439,11 @@ The same files are also loaded by Node's `require` for the unit tests, which is 
   "manifest_version": 3,
   "name": "Vimbird",
   "browser_specific_settings": {
-    "gecko": { "id": "vimbird@gyuyoung", "strict_min_version": "128.0" }
+    "gecko": {
+      "id": "vimbird@gyuyoung",
+      "strict_min_version": "128.0",
+      "strict_max_version": "158.*"
+    }
   },
   "background": { "scripts": ["src/background/background.js"] },
   "permissions": ["storage"],
@@ -462,7 +466,8 @@ The reasoning:
 - **MV3**: fully supported since TB 128 ESR and working completely on 155. The build confirms that the `experiment_apis` schema places no manifest_version restriction (research §4.1). If it ever causes trouble, reverting to MV2 costs a few manifest lines, since our code depends on no MV3-only API.
 - **`events: ["startup"]`**: the Experiment loads when the extension starts and attaches the window listeners in `onStartup()`. That way **hint mode does not die when the MV3 event page is terminated for being idle** — hanging logic off the background page's lifetime is the most common MV3 trap.
 - **Minimal permissions**: `storage` is the only standard permission the MVP needs. Everything else comes from the Experiment, at the price of the full-access warning at install time, which the README states plainly.
-- **`strict_min_version: 128.0`**: the floor at which MV3, `currentAbout3Pane` and the unified toolbar structure all hold. The README says plainly that verification only happened on 155.
+- **`strict_min_version: 128.0`**: the floor at which MV3, `currentAbout3Pane` and the unified toolbar structure all hold. The README says plainly that verification only happened on 155 and 157.
+- **`strict_max_version: 158.*`**: ATN's linter ([thunderbird/webext-linter](https://github.com/thunderbird/webext-linter), rule `experiment-missing-strict-max-version`) rejects an Experiment that declares no maximum, because Experiments reach into internals that change between major versions. Thunderbird recommends capping Experiments at the current ESR (153), but that would lock out the Release channel this project is developed and tested on, so the cap follows the current Release major instead. The cost is a release for every new Release major (roughly fortnightly since September 2026): check it, then raise the cap. ESR 153 stays inside the range either way.
 
 ---
 
