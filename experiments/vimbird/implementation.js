@@ -448,31 +448,6 @@ var vimbird = class extends ExtensionCommon.ExtensionAPI {
           }
           return { documents };
         },
-
-        /** Same entry point the `f` key uses; lets tests drive hint mode. */
-        async startHintMode() {
-          const controller = api.activeController();
-          if (!controller) {
-            return { error: "no active Vimbird window" };
-          }
-          const started = controller.startSession();
-          return { started, ...controller.describe() };
-        },
-
-        async sendHintInput(input) {
-          const controller = api.activeController();
-          if (!controller?.session) {
-            return { error: "hint mode is not active" };
-          }
-          controller.applyInput(input);
-          return controller.describe();
-        },
-
-        async cancelHintMode() {
-          const controller = api.activeController();
-          controller?.endSession();
-          return { cancelled: true };
-        },
       },
     };
   }

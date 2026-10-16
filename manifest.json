@@ -14,7 +14,6 @@
   "background": {
     "scripts": ["src/background/background.js"]
   },
-  "permissions": ["storage"],
   "experiment_apis": {
     "vimbird": {
       "schema": "experiments/vimbird/schema.json",

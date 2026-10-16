@@ -16,27 +16,6 @@
         "async": true,
         "description": "List, per document, how many elements would be hinted right now.",
         "parameters": []
-      },
-      {
-        "name": "startHintMode",
-        "type": "function",
-        "async": true,
-        "description": "Start hint mode in the active window, as pressing 'f' would.",
-        "parameters": []
-      },
-      {
-        "name": "sendHintInput",
-        "type": "function",
-        "async": true,
-        "description": "Feed hint characters to an active hint session.",
-        "parameters": [{ "name": "input", "type": "string" }]
-      },
-      {
-        "name": "cancelHintMode",
-        "type": "function",
-        "async": true,
-        "description": "Cancel hint mode, as pressing Escape would.",
-        "parameters": []
       }
     ]
   }
